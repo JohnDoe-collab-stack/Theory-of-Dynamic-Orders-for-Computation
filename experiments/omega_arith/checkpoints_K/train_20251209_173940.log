@@ -1,0 +1,14 @@
+17:39:40 | === Ω_arith Multi-Task Training (λ=0.5) ===
+17:39:40 | Config: TrainConfig(epochs=50, lr=0.001, batch_size=64, seed=42, digit_embed_dim=16, hidden_dim=128, n_layers=3, lambda_halt=0.5, n_halt_classes=4, shuffle_K=False, output_dir='checkpoints_K', checkpoint_epochs=[0, 10, 25, 50, 100])
+17:39:40 | 
+17:39:40 | Generating dataset...
+17:39:40 |   Train: 5100, Val: 900, Test (OOD): 2000
+17:39:40 | Model: 76,502 parameters
+17:39:42 | Epoch   0 | Loss: inf | Val Y: 0.374, H: 0.000 | OOD Y: 0.342, H: 0.000
+17:39:58 | Epoch  10 | Loss: 0.3811 | Val Y: 0.834, H: 0.960 | OOD Y: 0.838, H: 0.440
+17:40:20 | Epoch  25 | Loss: 0.3171 | Val Y: 0.853, H: 0.960 | OOD Y: 0.843, H: 0.438
+17:40:55 | Epoch  50 | Loss: 0.1830 | Val Y: 0.830, H: 0.960 | OOD Y: 0.845, H: 0.441
+17:40:55 | 
+Final: Val Y=0.830, H=0.960 | OOD Y=0.845, H=0.441
+17:40:55 | 
+=== Training Complete ===

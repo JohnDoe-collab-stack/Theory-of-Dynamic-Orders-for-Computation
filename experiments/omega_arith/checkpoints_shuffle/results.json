@@ -1,0 +1,32 @@
+{
+  "checkpoints": {
+    "0": {
+      "y_acc_val": 0.37444444444444447,
+      "halt_acc_val": 0.0,
+      "y_acc_test": 0.342,
+      "halt_acc_test": 0.0
+    },
+    "10": {
+      "y_acc_val": 0.84,
+      "halt_acc_val": 0.53,
+      "y_acc_test": 0.8465,
+      "halt_acc_test": 0.4205
+    },
+    "25": {
+      "y_acc_val": 0.8733333333333333,
+      "halt_acc_val": 0.5255555555555556,
+      "y_acc_test": 0.8585,
+      "halt_acc_test": 0.4225
+    },
+    "50": {
+      "y_acc_val": 0.8444444444444444,
+      "halt_acc_val": 0.43,
+      "y_acc_test": 0.811,
+      "halt_acc_test": 0.395
+    }
+  },
+  "val_y_accuracy": 0.8444444444444444,
+  "val_halt_accuracy": 0.43,
+  "test_y_accuracy": 0.811,
+  "test_halt_accuracy": 0.395
+}

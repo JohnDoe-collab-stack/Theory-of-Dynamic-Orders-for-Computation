@@ -1,0 +1,17 @@
+17:17:35 | === Ω_trig++ Multi-Task Training (λ=1.0) ===
+17:17:35 | Config: TrainConfig(epochs=50, lr=0.001, batch_size=64, seed=2, hidden_dim=128, n_layers=3, formula_embed_dim=16, lambda_halt=1.0, n_halt_classes=4, shuffle_K=False, output_dir='validation/K_s2_l1.0', checkpoint_epochs=[0, 5, 10, 25, 50, 100])
+17:17:35 | 
+17:17:35 | Generating dataset...
+17:17:35 |   Train: 4016, Val: 864, Test: 880
+17:17:35 |   Y balance: 45.9%
+17:17:35 |   Halt dist: {'EARLY': 2402, 'MID': 847, 'LATE': 332, 'NEVER': 435}
+17:17:35 | Model: 36,357 parameters
+17:17:38 | Epoch   0 | Loss: inf | Y: 0.453 | Halt: 0.635
+17:17:42 | Epoch   5 | Loss: 0.9545 | Y: 0.911 | Halt: 0.669
+17:17:45 | Epoch  10 | Loss: 0.6157 | Y: 0.965 | Halt: 0.769
+17:17:52 | Epoch  25 | Loss: 0.3564 | Y: 0.981 | Halt: 0.840
+17:18:04 | Epoch  50 | Loss: 0.2263 | Y: 0.987 | Halt: 0.890
+17:18:04 | 
+Final Test: Y=0.991, Halt=0.916
+17:18:04 | 
+=== Training Complete ===
