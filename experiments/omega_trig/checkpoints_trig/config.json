@@ -1,0 +1,16 @@
+{
+  "epochs": 60,
+  "lr": 0.001,
+  "batch_size": 64,
+  "seed": 42,
+  "angle_embed_dim": 16,
+  "index_embed_dim": 8,
+  "hidden_dim": 64,
+  "checkpoint_epochs": [
+    0,
+    1,
+    5,
+    10
+  ],
+  "output_dir": "checkpoints_trig"
+}

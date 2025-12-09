@@ -1,0 +1,16 @@
+09:18:28 | === Training Theory T_θ ===
+09:18:28 | Log file: checkpoints_trig\training_20251209_091828.log
+09:18:28 | Config: TrainConfig(epochs=60, lr=0.001, batch_size=64, seed=42, angle_embed_dim=16, index_embed_dim=8, hidden_dim=64, checkpoint_epochs=[0, 1, 5, 10], output_dir='checkpoints_trig')
+09:18:28 | 
+09:18:28 | Generating dataset...
+09:18:28 | Dataset: 2015 train, 432 val, 433 test
+09:18:28 | Model: 4,321 parameters
+09:18:30 | Epoch   0 | Loss: inf | Train: 0.505 (1018/2015) | Val: 0.475 (205/432)
+09:18:30 | Epoch   1 | Loss: 0.6126 | Train: 0.753 (1517/2015) | Val: 0.769 (332/432)
+09:18:31 | Epoch   5 | Loss: 0.3026 | Train: 0.907 (1828/2015) | Val: 0.935 (404/432)
+09:18:33 | Epoch  10 | Loss: 0.0917 | Train: 0.971 (1956/2015) | Val: 0.981 (424/432)
+09:18:33 | Final Test Accuracy: 0.972 (421/433)
+09:18:33 | 
+09:18:33 | === Training Complete ===
+09:18:33 | Checkpoints saved to: checkpoints_trig/
+09:18:33 | Log saved to: checkpoints_trig\training_20251209_091828.log
