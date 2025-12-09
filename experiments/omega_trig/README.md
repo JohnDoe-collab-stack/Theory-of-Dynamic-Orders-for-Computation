@@ -6,14 +6,15 @@ Experimental validation of the **Dynamic Order Theory** framework with a trigono
 
 ## Overview
 
-This experiment tests if a parameterized theory **T_θ** can learn to observe a fixed **Ω-structure** (trigonometry), with:
+This experiment tests if a parameterized theory **T_θ** can learn to observe a fixed **Ω-structure**, with:
 
 - **Ω** = fixed syntax (angles, profiles, questions)
-- **K** = dynamic kernel with monotone refinement
+- **K** = dynamic kernel with monotone refinement (approx_t, val_t, E(K))
 - **T_θ** = neural observer that approximates Ω
 - **P_vec** = orthogonal structure (cut ⊥ bit)
+- **Curriculum** = K-guided training (weighted loss by difficulty)
 
-The key principle: **θ is an output**, not the source of structure.
+**Key principle**: θ is an **output** (analyzable object), not the source of structure.
 
 ---
 
@@ -22,34 +23,23 @@ The key principle: **θ is an output**, not the source of structure.
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      Ω-Syntax (Fixed)                       │
-│  ┌─────────────┐  ┌─────────────┐  ┌───────────────────┐   │
-│  │ AngleCode   │  │   PTrig     │  │   questionTrig    │   │
-│  │ k ∈ {0..359}│  │ (sinI,cosI) │  │ (i, p) → {0,1}    │   │
-│  └─────────────┘  └─────────────┘  └───────────────────┘   │
+│  AngleCode (360) │ PTrig (sin,cos) │ questionTrig → {0,1}   │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                 Dynamic Kernel K (Monotone)                 │
-│  ┌─────────────┐  ┌─────────────┐  ┌───────────────────┐   │
-│  │ approx_t(x) │  │  val_t(x,i) │  │     E(K)          │   │
-│  │ → Profile   │  │ → {0,1}     │  │ stabilized asserts│   │
-│  └─────────────┘  └─────────────┘  └───────────────────┘   │
+│  approx_t(x) │ val_t(x,i) │ traces │ E(K) │ t_first^K      │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                    Theory T_θ (Learner)                     │
-│  ┌─────────────┐  ┌─────────────┐  ┌───────────────────┐   │
-│  │ angle_embed │  │ index_embed │  │      MLP          │   │
-│  │   (16-dim)  │  │   (8-dim)   │  │ → probability     │   │
-│  └─────────────┘  └─────────────┘  └───────────────────┘   │
+│  angle_embed │ index_embed │ MLP → probability              │
+│  [baseline] or [curriculum: weighted by halt_K]             │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                   P_vec Analysis                            │
-│  ┌─────────────┐  ┌─────────────┐  ┌───────────────────┐   │
-│  │ cut (angle) │  │bit (q-type) │  │  halt (t_first)   │   │
-│  │  quadrant   │  │ SIGN/GE_*   │  │ EARLY/MID/LATE    │   │
-│  └─────────────┘  └─────────────┘  └───────────────────┘   │
+│                   Analysis Layer                            │
+│  E(T_θ) inclusions │ sync K↔T │ P_vec probes (cut⊥bit)     │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -57,209 +47,119 @@ The key principle: **θ is an output**, not the source of structure.
 
 ## Files
 
-| File | Description | Lines |
-|------|-------------|-------|
-| `trig_kernel.py` | Ω-syntax: AngleCode, PTrig, V_trig, questionTrig | ~280 |
-| `dataset_trig.py` | Dataset D = X_trig × I_trig with labels y* | ~180 |
-| `model_T.py` | Theory T_θ: neural model with embeddings | ~240 |
-| `train_T.py` | Training loop with BCE loss, checkpoints, logging | ~350 |
-| `analysis_T.py` | E(T_θ) inclusion analysis, theory gradient | ~230 |
-| `pvec_trig.py` | P_vec structure: CutClass, BitClass, HaltRank | ~220 |
-| `analysis_pvec_trig.py` | Linear probes for cut/bit, orthogonality test | ~300 |
-| `dynamic_trig_kernel.py` | DynamicTrigKernel: approx_t, val_t, traces, E(K) | ~320 |
-| `sync_K_T.py` | K ↔ T_θ synchronization: correlation, confusion | ~280 |
-| `__init__.py` | Package exports | ~50 |
+| File | Description |
+|------|-------------|
+| `trig_kernel.py` | Ω-syntax: AngleCode, PTrig, V_trig, questionTrig |
+| `dataset_trig.py` | Dataset D = X_trig × I_trig with labels y* |
+| `model_T.py` | Theory T_θ: neural model with return_embedding |
+| `train_T.py` | Baseline training (BCE + checkpoints) |
+| `train_T_curriculum.py` | K-guided training (weighted/phased curriculum) |
+| `dynamic_trig_kernel.py` | DynamicTrigKernel: approx_t, val_t, traces, E(K) |
+| `analysis_T.py` | E(T_θ) inclusion analysis, theory gradient |
+| `pvec_trig.py` | P_vec structure: CutClass, BitClass, HaltRank |
+| `analysis_pvec_trig.py` | Linear probes for cut/bit, orthogonality test |
+| `sync_K_T.py` | K ↔ T_θ synchronization: correlation, confusion |
 
 ---
 
 ## Quick Start
 
-### 1. Run kernel self-tests
-
 ```bash
+# 1. Test kernels
 python trig_kernel.py
 python dynamic_trig_kernel.py
-python pvec_trig.py
-```
 
-### 2. Train theory T_θ
+# 2. Export difficulty map from K
+python -c "from dynamic_trig_kernel import *; k=DynamicTrigKernel(angles=list(range(360))); k.export_t_first_K()"
 
-```bash
+# 3. Train baseline T_θ
 python train_T.py
-```
 
-Output:
-- Checkpoints in `checkpoints_trig/`
-- Logs with timestamps
+# 4. Train curriculum T_θ (K-guided)
+python train_T_curriculum.py --mode weighted
 
-### 3. Analyze theory gradient
-
-```bash
-python analysis_T.py
-```
-
-Expected:
-```
-VERDICT: ✓ SUCCESSFUL - Theory gradient detected
-```
-
-### 4. Analyze P_vec structure
-
-```bash
+# 5. Analyze
+python analysis_T.py --checkpoints-dir checkpoints_trig
+python analysis_T.py --checkpoints-dir checkpoints_curriculum2
+python sync_K_T.py --checkpoints-dir checkpoints_trig
 python analysis_pvec_trig.py
 ```
-
-Expected:
-```
-Cut: 99.1%
-Bit: 100.0%
-cos(W_cut, W_bit) ≈ 0.058
-VERDICT: ✓ P_VEC STRUCTURE DETECTED
-```
-
-### 5. Synchronize K ↔ T_θ
-
-```bash
-python sync_K_T.py
-```
-
-Expected:
-```
-VERDICT: ✓ K-T SYNC DETECTED
-```
-
----
-
-## Configuration
-
-### Dataset
-
-| Parameter | Value |
-|-----------|-------|
-| N_FIXED | 360 angles |
-| I_trig | 8 question types |
-| Total samples | 2880 |
-| Train / Val / Test | 2015 / 432 / 433 |
-
-### Model T_θ
-
-| Parameter | Value |
-|-----------|-------|
-| angle_embed_dim | 16 |
-| index_embed_dim | 8 |
-| hidden_dim | 64 |
-| Total params | 4,321 |
-
-### Training
-
-| Parameter | Value |
-|-----------|-------|
-| Epochs | 60 |
-| Learning rate | 0.001 |
-| Batch size | 64 |
-| Optimizer | Adam |
-| Loss | BCE |
-| Checkpoints | [0, 1, 5, 10, 20, 50] |
-
-### Dynamic Kernel K
-
-| Parameter | Value |
-|-----------|-------|
-| T_max | 10 |
-| Angles | 360 |
-| Questions | 8 |
 
 ---
 
 ## Results
 
-### T_θ Training
+### Test Accuracy
 
-| Epoch | Val Acc | E(T_θ) |
-|------:|--------:|-------:|
-| 0 | 47.5% | 205 |
-| 5 | 92.8% | 401 |
-| 10 | 96.3% | 416 |
-| 20 | 98.4% | 425 |
-| 50 | 98.4% | 425 |
+| Run | Test Acc |
+|-----|----------|
+| Baseline | 97.2% |
+| Curriculum (K-guided) | **98.2%** (+1.0%) |
 
-**Test Accuracy: 97.2%**
+### Theory Gradient E(T_θ)
 
-### Theory Gradient
-
-| Transition | Inclusion |
-|------------|-----------|
-| 5 → 10 | 0.970 |
-| 10 → 20 | 1.000 |
-| 20 → 50 | 0.990 |
-
-**Average: 0.980**
+| Transition | Baseline | Curriculum |
+|------------|----------|------------|
+| 5 → 10 | 0.97 | 0.97 |
+| 10 → 20 | 1.00 | 1.00 |
+| 20 → 50 | 0.99 | 0.99 |
+| **Verdict** | ✓ SUCCESS | ✓ SUCCESS |
 
 ### P_vec Decodability
 
 | Axis | Accuracy | Random |
 |------|----------|--------|
-| cut | 99.1% | 25% |
-| bit | 100.0% | 25% |
-| halt | 69.9% | 64% |
+| cut (quadrant) | 99% | 25% |
+| bit (q-type) | 100% | 25% |
+| halt (t_first) | 70% | 64% |
+| **cos(W_cut, W_bit)** | 0.058 | - |
 
-**cos(W_cut, W_bit) = 0.058** (quasi-orthogonal)
+### Sync K ↔ T_θ
 
-### Dynamic Kernel K
+| Run | Pearson | Spearman | Verdict |
+|-----|---------|----------|---------|
+| Baseline | 0.35 | 0.39 | ✓ DETECTED |
+| Curriculum | 0.37 | 0.42 | ✓ DETECTED |
 
-| Metric | Value |
-|--------|-------|
-| Monotonicity approx_t | ✓ |
-| Monotonicity val_t | ✓ |
-| E(K) | 53% stabilized |
-| t_first avg | 6.2 |
+---
+
+## Key Findings
+
+1. **K pilote T_θ** via la loss (curriculum weighted)
+2. **cut ⊥ bit** dans l'espace latent (cos ≈ 0.06)
+3. **halt n'est pas linéairement séparable** (+6pp vs random)
+4. **La dynamique est un objet second ordre** (sur trajectoires, pas feature statique)
 
 ---
 
 ## Theoretical Background
 
 ### Ω-Syntax
+- Fixed structure, independent of learning
+- `V_trig(x)` = ideal profile, `questionTrig(i, p)` = structural truth
 
-- **AngleCode**: x = k/360, k ∈ {0, ..., 359}
-- **PTrig**: profile (sinI, cosI) with rational intervals
-- **V_trig**: structural evaluation x → PTrig
-- **questionTrig**: (i, p) → Bool, reads interval bounds
+### Dynamic Kernel K
+- `approx_t(x)`: monotone refinement (intervals shrink)
+- `val_t(x,i)`: once true, stays true
+- `t_first^K(σ)`: structural difficulty measure
 
-### Dynamic Kernel
-
-- **approx_t(x)**: monotone refinement towards V_trig(x)
-- **val_t(x, i)**: questionTrig(i, approx_t(x))
-- **Monotonicity**: t ≤ t' ⇒ approx_t(x) ≤ approx_t'(x)
-- **E(K)**: assertions that stabilize to true
-
-### P_vec Structure
-
-- **cut**: depends ONLY on angle (quadrant Q0-Q3)
-- **bit**: depends ONLY on index type (SIGN, GE_*)
-- **halt**: depends ONLY on dynamics (t_first)
-
-By construction: **cut ⊥ bit** (orthogonal axes)
-
-### Theory T_θ
-
-- θ = 4,321 parameters (output, not source)
-- Learns to approximate questionTrig via BCE
-- E(T_θ) = correctly answered questions
-- E(T_θ₁) ⊆ E(T_θ₂) for training epochs
+### P_vec
+- **cut**: quadrant (depends only on angle)
+- **bit**: question type (depends only on index)
+- **halt**: learning difficulty (depends only on dynamics)
 
 ---
 
-## Success Criteria
+## Configuration
 
-| Criterion | Expected | Observed | Status |
-|-----------|----------|----------|--------|
-| Initial acc ~50% | 40-60% | 47.5% | ✓ |
-| Final acc ≥90% | ≥90% | 97.2% | ✓ |
-| E(T) monotonic | ≥95% | 96-100% | ✓ |
-| Cut decodable | ≥85% | 99.1% | ✓ |
-| Bit decodable | ≥85% | 100% | ✓ |
-| cut ⊥ bit | \|cos\| ≤ 0.2 | 0.058 | ✓ |
-| K monotone | ✓ | ✓ | ✓ |
+| Parameter | Value |
+|-----------|-------|
+| Angles | 360 |
+| Questions | 8 types |
+| Dataset | 2880 samples |
+| Model params | 4,321 |
+| Epochs | 60 |
+| Curriculum weights | EARLY:1, MID:2, LATE:3, NEVER:4 |
 
 ---
 
@@ -268,7 +168,7 @@ By construction: **cut ⊥ bit** (orthogonal axes)
 ```
 torch>=2.0
 numpy
-scipy (for Spearman correlation)
+scipy
 ```
 
 ---

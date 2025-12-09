@@ -346,9 +346,25 @@ def train_with_curriculum(config: CurriculumConfig) -> Dict:
                 "E_val_size": len(E_val),
             }
             
-            # Save checkpoint
+            # Save checkpoint weights
             torch.save(model.state_dict(), 
                        os.path.join(config.output_dir, f"epoch_{epoch:03d}.pt"))
+            
+            # Save JSON metadata (compatible with analysis_T.py)
+            ckpt_meta = {
+                "epoch": epoch,
+                "acc_train": acc_train,
+                "acc_val": acc_val,
+                "loss": loss if loss != float('inf') else None,
+                "E_train_size": len(E_train),
+                "E_val_size": len(E_val),
+            }
+            with open(os.path.join(config.output_dir, f"epoch_{epoch:03d}.json"), 'w') as f:
+                json.dump(ckpt_meta, f, indent=2)
+            
+            # Save E_val separately (for inclusion analysis)
+            with open(os.path.join(config.output_dir, f"epoch_{epoch:03d}_E_val.json"), 'w') as f:
+                json.dump(E_val, f)
     
     # Final test
     acc_test, E_test = evaluate(model, test_enriched)

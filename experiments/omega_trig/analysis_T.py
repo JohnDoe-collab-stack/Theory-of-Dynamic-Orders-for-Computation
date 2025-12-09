@@ -104,6 +104,9 @@ def analyze_checkpoints(checkpoints_dir: str,
     checkpoints = {}
     
     for fname in os.listdir(checkpoints_dir):
+        # Skip E_val files - they are separate
+        if "_E_val.json" in fname:
+            continue
         if fname.endswith(".json") and fname.startswith("epoch_"):
             path = os.path.join(checkpoints_dir, fname)
             with open(path) as f:
