@@ -2,31 +2,31 @@
   "checkpoints": {
     "0": {
       "y_acc_val": 0.056,
-      "halt_acc_val": 0.934,
+      "halt_acc_val": 0.352,
       "y_acc_test": 0.084,
-      "halt_acc_test": 0.902
+      "halt_acc_test": 0.31
     },
     "10": {
-      "y_acc_val": 0.954,
-      "halt_acc_val": 0.936,
-      "y_acc_test": 0.905,
-      "halt_acc_test": 0.89
+      "y_acc_val": 0.95,
+      "halt_acc_val": 0.792,
+      "y_acc_test": 0.908,
+      "halt_acc_test": 0.765
     },
     "25": {
-      "y_acc_val": 0.956,
-      "halt_acc_val": 0.946,
-      "y_acc_test": 0.906,
-      "halt_acc_test": 0.899
+      "y_acc_val": 0.976,
+      "halt_acc_val": 0.898,
+      "y_acc_test": 0.909,
+      "halt_acc_test": 0.765
     },
     "50": {
-      "y_acc_val": 0.976,
-      "halt_acc_val": 0.962,
-      "y_acc_test": 0.896,
-      "halt_acc_test": 0.88
+      "y_acc_val": 1.0,
+      "halt_acc_val": 0.96,
+      "y_acc_test": 0.891,
+      "halt_acc_test": 0.752
     }
   },
-  "val_y_accuracy": 0.976,
-  "val_halt_accuracy": 0.962,
-  "test_y_accuracy": 0.896,
-  "test_halt_accuracy": 0.88
+  "val_y_accuracy": 1.0,
+  "val_halt_accuracy": 0.96,
+  "test_y_accuracy": 0.891,
+  "test_halt_accuracy": 0.752
 }

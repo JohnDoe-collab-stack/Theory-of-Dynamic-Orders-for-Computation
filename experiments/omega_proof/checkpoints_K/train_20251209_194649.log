@@ -1,0 +1,14 @@
+19:46:49 | === Ω_proof Multi-Task Training (λ=0.5) ===
+19:46:49 | Config: TrainConfig(epochs=50, lr=0.001, batch_size=64, seed=42, vocab_size=20, embed_dim=32, hidden_dim=128, n_layers=3, lambda_halt=0.5, n_halt_classes=3, shuffle_K=False, output_dir='checkpoints_K', checkpoint_epochs=[0, 10, 25, 50, 100])
+19:46:49 | 
+19:46:49 | Generating dataset...
+19:46:50 |   Train: 3000, Val: 500, Test (OOD): 1000
+19:46:50 | Model: 48,388 parameters
+19:46:53 | Epoch   0 | Loss: inf | Val Y: 0.056, H: 0.352 | OOD Y: 0.084, H: 0.310
+19:47:09 | Epoch  10 | Loss: 0.3241 | Val Y: 0.950, H: 0.792 | OOD Y: 0.908, H: 0.765
+19:47:35 | Epoch  25 | Loss: 0.2185 | Val Y: 0.976, H: 0.898 | OOD Y: 0.909, H: 0.765
+19:48:11 | Epoch  50 | Loss: 0.1170 | Val Y: 1.000, H: 0.960 | OOD Y: 0.891, H: 0.752
+19:48:11 | 
+Final: Val Y=1.000, H=0.960 | OOD Y=0.891, H=0.752
+19:48:11 | 
+=== Training Complete ===

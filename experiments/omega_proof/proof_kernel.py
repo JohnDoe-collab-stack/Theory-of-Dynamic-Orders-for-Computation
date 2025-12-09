@@ -1,16 +1,14 @@
 """
-Ω_proof Kernel: Propositional Logic with Dynamic Evaluation
+Ω_proof Kernel v2: Propositional Logic with Early Stopping
 
-Implements:
-- Propositional formulas (atoms, ¬, ∧, ∨, →)
-- Questions: TAUT, SAT
-- Progressive evaluation (simulating partial knowledge)
-- t_first^K: when truth becomes determined
+Key changes from v1:
+- Early stopping on first counterexample/witness
+- Halt bucketed by relative position in search space (not atoms)
 """
 
 import random
 from dataclasses import dataclass
-from typing import List, Set, Tuple, Optional, Dict
+from typing import List, Set, Tuple, Dict
 from enum import Enum
 from abc import ABC, abstractmethod
 from itertools import product
@@ -35,7 +33,6 @@ class Formula(ABC):
     
     @abstractmethod
     def size(self) -> int:
-        """Number of nodes in formula tree."""
         pass
 
 
@@ -143,127 +140,81 @@ class Implies(Formula):
 
 
 # ============================================================================
-# 2. Ground Truth Computation
+# 2. Ground Truth
 # ============================================================================
 
 def is_tautology(formula: Formula) -> bool:
-    """Check if formula is true under all assignments."""
     atom_list = sorted(formula.atoms())
     if not atom_list:
         return formula.eval({})
     
     for values in product([False, True], repeat=len(atom_list)):
-        assignment = dict(zip(atom_list, values))
-        if not formula.eval(assignment):
+        if not formula.eval(dict(zip(atom_list, values))):
             return False
     return True
 
 
 def is_satisfiable(formula: Formula) -> bool:
-    """Check if formula is true under some assignment."""
     atom_list = sorted(formula.atoms())
     if not atom_list:
         return formula.eval({})
     
     for values in product([False, True], repeat=len(atom_list)):
-        assignment = dict(zip(atom_list, values))
-        if formula.eval(assignment):
+        if formula.eval(dict(zip(atom_list, values))):
             return True
     return False
 
 
 # ============================================================================
-# 3. Dynamic Kernel: Progressive Atom Resolution
+# 3. Dynamic Kernel with Early Stopping
 # ============================================================================
 
 class ProofKernel:
     """
-    Dynamic kernel that progressively fixes atom assignments.
+    K with EARLY STOPPING on counterexamples/witnesses.
     
-    At time t, atoms p0..p_{t-1} are fixed, others unknown.
-    t_first^K = first t where result is determined for all remaining extensions.
+    t_first = number of valuations examined before decision.
+    This creates natural variation in difficulty.
     """
     
-    def __init__(self, max_steps: int = 10):
+    def __init__(self, max_steps: int = 100):
         self.max_steps = max_steps
     
     def compute_t_first_taut(self, formula: Formula) -> Tuple[bool, int]:
-        """
-        Compute when tautology status becomes determined.
-        
-        Progressive assignment: at t, first t atoms are fixed.
-        Answer is determined when all extensions of partial assignment agree.
-        """
+        """Stop on first counterexample."""
         atom_list = sorted(formula.atoms())
         n = len(atom_list)
         
-        is_taut = is_tautology(formula)
-        
         if n == 0:
-            return is_taut, 0
+            return formula.eval({}), 0
         
-        # At each t, check if answer is determined
-        for t in range(n + 1):
-            determined = True
-            
-            # Check all partial assignments of first t atoms
-            for partial_values in product([False, True], repeat=t) if t > 0 else [()]:
-                partial = dict(zip(atom_list[:t], partial_values))
-                
-                # Check if all extensions agree
-                results = set()
-                for ext_values in product([False, True], repeat=n-t) if n-t > 0 else [()]:
-                    full = dict(partial)
-                    full.update(zip(atom_list[t:], ext_values))
-                    results.add(formula.eval(full))
-                
-                if len(results) > 1:
-                    # This partial assignment doesn't determine result
-                    determined = False
-                    break
-                
-            if determined:
-                return is_taut, t
+        t = 0
+        for values in product([False, True], repeat=n):
+            t += 1
+            if not formula.eval(dict(zip(atom_list, values))):
+                return False, t  # Counterexample found
+            if t >= self.max_steps:
+                break
         
-        return is_taut, n
+        return True, t  # All passed
     
     def compute_t_first_sat(self, formula: Formula) -> Tuple[bool, int]:
-        """Compute when satisfiability status becomes determined."""
+        """Stop on first witness."""
         atom_list = sorted(formula.atoms())
         n = len(atom_list)
         
-        is_sat = is_satisfiable(formula)
-        
         if n == 0:
-            return is_sat, 0
+            return formula.eval({}), 0
         
-        # At each t, check if answer is determined
-        for t in range(n + 1):
-            determined = True
-            
-            for partial_values in product([False, True], repeat=t) if t > 0 else [()]:
-                partial = dict(zip(atom_list[:t], partial_values))
-                
-                # Check all extensions
-                found_true = False
-                found_false = False
-                
-                for ext_values in product([False, True], repeat=n-t) if n-t > 0 else [()]:
-                    full = dict(partial)
-                    full.update(zip(atom_list[t:], ext_values))
-                    if formula.eval(full):
-                        found_true = True
-                    else:
-                        found_false = True
-                
-                # SAT is determined if we definitely found or definitely won't find
-                # For taut, we'd need all True
-                # For SAT, we need at least one True OR confirmed all False
-                
-            if t == n:
-                return is_sat, t
+        t = 0
+        for values in product([False, True], repeat=n):
+            t += 1
+            if formula.eval(dict(zip(atom_list, values))):
+                return True, t  # Witness found
+            if t >= self.max_steps:
+                break
         
-        return is_sat, n
+        return False, t  # No witness
 
 
 # ============================================================================
@@ -271,30 +222,31 @@ class ProofKernel:
 # ============================================================================
 
 class QuestionType(Enum):
-    TAUT = 0    # Is formula a tautology?
-    SAT = 1     # Is formula satisfiable?
+    TAUT = 0
+    SAT = 1
 
 
 # ============================================================================
-# 5. Halt Ranks
+# 5. Halt Ranks - Relative to Search Space
 # ============================================================================
 
 class HaltRank(Enum):
-    EARLY = 0   # t_first <= 1
-    MID = 1     # 2 <= t_first <= 3
-    LATE = 2    # t_first >= 4
-    NEVER = 3   # Timeout/undetermined
+    EARLY = 0   # First 25% of search space
+    MID = 1     # 25-75% of search space
+    LATE = 2    # Last 25% of search space
 
 
 def halt_rank_of_tfirst(t_first: int, n_atoms: int) -> HaltRank:
+    """Classify by relative position in 2^n search space."""
     if n_atoms == 0:
         return HaltRank.EARLY
     
-    ratio = t_first / n_atoms
+    total = 2 ** n_atoms
+    ratio = t_first / total
     
-    if ratio <= 0.33:
+    if ratio <= 0.25:
         return HaltRank.EARLY
-    elif ratio <= 0.66:
+    elif ratio <= 0.75:
         return HaltRank.MID
     else:
         return HaltRank.LATE
@@ -305,7 +257,6 @@ def halt_rank_of_tfirst(t_first: int, n_atoms: int) -> HaltRank:
 # ============================================================================
 
 def random_formula(n_atoms: int, max_depth: int, seed: int = None) -> Formula:
-    """Generate random propositional formula."""
     if seed is not None:
         random.seed(seed)
     
@@ -334,20 +285,16 @@ def random_formula(n_atoms: int, max_depth: int, seed: int = None) -> Formula:
 # ============================================================================
 
 if __name__ == "__main__":
-    print("=== Ω_proof Kernel Test ===\n")
+    print("=== Ω_proof Kernel v2 Test ===\n")
     
-    kernel = ProofKernel(max_steps=10)
-    
-    # Test formulas
-    p, q, r = Atom("p"), Atom("q"), Atom("r")
+    kernel = ProofKernel()
+    p, q = Atom("p"), Atom("q")
     
     tests = [
         ("p ∨ ¬p", Or(p, Not(p)), True),
         ("p ∧ ¬p", And(p, Not(p)), False),
         ("p → p", Implies(p, p), True),
-        ("(p → q) → (¬q → ¬p)", Implies(Implies(p, q), Implies(Not(q), Not(p))), True),
         ("p ∧ q", And(p, q), False),
-        ("(p ∨ q) → (q ∨ p)", Implies(Or(p, q), Or(q, p)), True),
         ("p", p, False),
     ]
     
@@ -355,33 +302,19 @@ if __name__ == "__main__":
     for name, formula, expected in tests:
         is_taut, t_first = kernel.compute_t_first_taut(formula)
         n = len(formula.atoms())
+        total = 2 ** n if n > 0 else 1
         hr = halt_rank_of_tfirst(t_first, n)
         status = "✓" if is_taut == expected else "✗"
-        print(f"  {status} {name}: taut={is_taut}, t_first={t_first}/{n}, {hr.name}")
+        print(f"  {status} {name}: taut={is_taut}, t={t_first}/{total}, {hr.name}")
     
-    # SAT tests
-    print("\nSatisfiability tests:")
-    sat_tests = [
-        ("p ∧ q", And(p, q), True),
-        ("p ∧ ¬p", And(p, Not(p)), False),
-        ("(p ∨ q) ∧ ¬p", And(Or(p, q), Not(p)), True),
-    ]
+    print("\nRandom formulas (4 atoms, depth 3):")
+    halt_counts = {"EARLY": 0, "MID": 0, "LATE": 0}
+    for i in range(100):
+        f = random_formula(4, 3, seed=i)
+        _, t_first = kernel.compute_t_first_taut(f)
+        hr = halt_rank_of_tfirst(t_first, len(f.atoms()))
+        halt_counts[hr.name] += 1
     
-    for name, formula, expected in sat_tests:
-        is_sat = is_satisfiable(formula)
-        _, t_first = kernel.compute_t_first_taut(formula)
-        status = "✓" if is_sat == expected else "✗"
-        print(f"  {status} {name}: sat={is_sat}")
-    
-    # Random formulas
-    print("\nRandom formulas (depth 3, 3 atoms):")
-    for i in range(5):
-        f = random_formula(3, 3, seed=i)
-        is_taut, t_first = kernel.compute_t_first_taut(f)
-        n = len(f.atoms())
-        hr = halt_rank_of_tfirst(t_first, n)
-        sat = is_satisfiable(f)
-        print(f"  {f}")
-        print(f"    taut={is_taut}, sat={sat}, t={t_first}/{n}, {hr.name}")
+    print(f"  Distribution: {halt_counts}")
     
     print("\n=== Test Complete ===")

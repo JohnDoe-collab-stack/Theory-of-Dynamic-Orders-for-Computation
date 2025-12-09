@@ -2,31 +2,31 @@
   "checkpoints": {
     "0": {
       "y_acc_val": 0.056,
-      "halt_acc_val": 0.934,
+      "halt_acc_val": 0.352,
       "y_acc_test": 0.084,
-      "halt_acc_test": 0.902
+      "halt_acc_test": 0.31
     },
     "10": {
-      "y_acc_val": 0.954,
-      "halt_acc_val": 0.934,
-      "y_acc_test": 0.908,
-      "halt_acc_test": 0.902
+      "y_acc_val": 0.956,
+      "halt_acc_val": 0.406,
+      "y_acc_test": 0.9,
+      "halt_acc_test": 0.329
     },
     "25": {
       "y_acc_val": 0.962,
-      "halt_acc_val": 0.934,
-      "y_acc_test": 0.912,
-      "halt_acc_test": 0.902
+      "halt_acc_val": 0.416,
+      "y_acc_test": 0.908,
+      "halt_acc_test": 0.342
     },
     "50": {
       "y_acc_val": 0.972,
-      "halt_acc_val": 0.934,
-      "y_acc_test": 0.895,
-      "halt_acc_test": 0.901
+      "halt_acc_val": 0.368,
+      "y_acc_test": 0.887,
+      "halt_acc_test": 0.327
     }
   },
   "val_y_accuracy": 0.972,
-  "val_halt_accuracy": 0.934,
-  "test_y_accuracy": 0.895,
-  "test_halt_accuracy": 0.901
+  "val_halt_accuracy": 0.368,
+  "test_y_accuracy": 0.887,
+  "test_halt_accuracy": 0.327
 }
