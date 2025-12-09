@@ -6,15 +6,14 @@ Experimental validation of the **Dynamic Order Theory** framework with a trigono
 
 ## Overview
 
-This experiment tests if a parameterized theory **T_θ** can learn to observe a fixed **Ω-structure**, with:
+This experiment validates that a parameterized theory **T_θ** can learn to observe a fixed **Ω-structure**, with:
 
 - **Ω** = fixed syntax (angles, profiles, questions)
 - **K** = dynamic kernel with monotone refinement (approx_t, val_t, E(K))
 - **T_θ** = neural observer that approximates Ω
 - **P_vec** = orthogonal structure (cut ⊥ bit)
-- **Curriculum** = K-guided training (weighted loss by difficulty)
 
-**Key principle**: θ is an **output** (analyzable object), not the source of structure.
+**Key finding**: K's temporal structure is **real, stable, and exploitable** by T_θ when used as an explicit learning objective.
 
 ---
 
@@ -28,20 +27,59 @@ This experiment tests if a parameterized theory **T_θ** can learn to observe a 
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                 Dynamic Kernel K (Monotone)                 │
-│  approx_t(x) │ val_t(x,i) │ traces │ E(K) │ t_first^K      │
+│  approx_t(x) │ val_t(x,i) │ t_first^K │ halt_rank_K         │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                    Theory T_θ (Learner)                     │
-│  angle_embed │ index_embed │ MLP → probability              │
-│  [baseline] or [curriculum: weighted by halt_K]             │
-└─────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────┐
-│                   Analysis Layer                            │
-│  E(T_θ) inclusions │ sync K↔T │ P_vec probes (cut⊥bit)     │
+│  Multi-task: Y head (y*) + Halt head (halt_rank_K)          │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Key Results
+
+### Multi-Task Validation (3 seeds)
+
+| Condition | Y Accuracy | Halt Accuracy |
+|-----------|------------|---------------|
+| **K-real** | 99.2% ± 0.3% | **98.7% ± 0.4%** |
+| **Shuffle** | 98.9% ± 0.5% | 48.1% ± 2.6% |
+| **Δ Halt** | - | **+50.6pp** |
+
+### λ_halt Sweep
+
+| λ | K Halt | Shuffle Halt | Δ Halt |
+|---|--------|--------------|--------|
+| 0.0 | 3.9% | 13.4% | -9.5pp |
+| 0.1 | 98.4% | 50.1% | **+48.3pp** |
+| 0.5 | 99.1% | 50.1% | **+49.0pp** |
+| 1.0 | 99.3% | 50.1% | **+49.2pp** |
+
+### Sync K ↔ T_θ
+
+- Pearson: ≈ 0.35
+- Spearman: ≈ 0.39
+- Verdict: ✓ DETECTED
+
+### P_vec Structure
+
+| Axis | Accuracy | Random |
+|------|----------|--------|
+| cut | 99% | 25% |
+| bit | 100% | 25% |
+| cos(W_cut, W_bit) | 0.06 | - |
+
+---
+
+## Interpretation
+
+1. **K structure is REAL**: +50pp halt accuracy when K-real vs shuffle
+2. **T_θ can learn K**: Multi-task achieves 99% halt accuracy
+3. **Shuffle destroys signal**: Permuting t_first^K → random chance
+4. **Curriculum alone doesn't help**: Task too easy for loss weighting
+5. **P_vec is clean**: cut ⊥ bit in latent space
 
 ---
 
@@ -51,115 +89,44 @@ This experiment tests if a parameterized theory **T_θ** can learn to observe a 
 |------|-------------|
 | `trig_kernel.py` | Ω-syntax: AngleCode, PTrig, V_trig, questionTrig |
 | `dataset_trig.py` | Dataset D = X_trig × I_trig with labels y* |
-| `model_T.py` | Theory T_θ: neural model with return_embedding |
-| `train_T.py` | Baseline training (BCE + checkpoints) |
-| `train_T_curriculum.py` | K-guided training (weighted/phased curriculum) |
-| `dynamic_trig_kernel.py` | DynamicTrigKernel: approx_t, val_t, traces, E(K) |
-| `analysis_T.py` | E(T_θ) inclusion analysis, theory gradient |
-| `pvec_trig.py` | P_vec structure: CutClass, BitClass, HaltRank |
-| `analysis_pvec_trig.py` | Linear probes for cut/bit, orthogonality test |
-| `sync_K_T.py` | K ↔ T_θ synchronization: correlation, confusion |
+| `model_T.py` | Theory T_θ with embeddings |
+| `train_T.py` | Baseline training |
+| `train_T_curriculum.py` | K-guided curriculum training |
+| `train_T_multitask.py` | Multi-task: y* + halt_rank_K |
+| `dynamic_trig_kernel.py` | DynamicTrigKernel: monotone refinement |
+| `analysis_T.py` | E(T_θ) inclusion analysis |
+| `sync_K_T.py` | K ↔ T_θ synchronization |
+| `analysis_pvec_trig.py` | P_vec linear probes |
+| `run_ablation.py` | Curriculum ablation runner |
+| `run_mt_validation.py` | Multi-task validation + λ sweep |
 
 ---
 
 ## Quick Start
 
 ```bash
-# 1. Test kernels
-python trig_kernel.py
-python dynamic_trig_kernel.py
-
-# 2. Export difficulty map from K
-python -c "from dynamic_trig_kernel import *; k=DynamicTrigKernel(angles=list(range(360))); k.export_t_first_K()"
-
-# 3. Train baseline T_θ
+# 1. Train baseline
 python train_T.py
 
-# 4. Train curriculum T_θ (K-guided)
-python train_T_curriculum.py --mode weighted
+# 2. Export K structure
+python -c "from dynamic_trig_kernel import *; DynamicTrigKernel(list(range(360))).export_t_first_K()"
 
-# 5. Analyze
-python analysis_T.py --checkpoints-dir checkpoints_trig
-python analysis_T.py --checkpoints-dir checkpoints_curriculum2
-python sync_K_T.py --checkpoints-dir checkpoints_trig
+# 3. Multi-task validation
+python run_mt_validation.py --seeds 3 --lambda-sweep
+
+# 4. Analyze
+python analysis_T.py
+python sync_K_T.py
 python analysis_pvec_trig.py
 ```
 
 ---
 
-## Results
+## Conclusion
 
-### Test Accuracy
+> "La structure temporelle K, définie au niveau des trajectoires d'un noyau dynamique, est réelle, stable, et effectivement exploitable par un réseau T dès qu'on en fait un objectif auxiliaire."
 
-| Run | Test Acc |
-|-----|----------|
-| Baseline | 97.2% |
-| Curriculum (K-guided) | **98.2%** (+1.0%) |
-
-### Theory Gradient E(T_θ)
-
-| Transition | Baseline | Curriculum |
-|------------|----------|------------|
-| 5 → 10 | 0.97 | 0.97 |
-| 10 → 20 | 1.00 | 1.00 |
-| 20 → 50 | 0.99 | 0.99 |
-| **Verdict** | ✓ SUCCESS | ✓ SUCCESS |
-
-### P_vec Decodability
-
-| Axis | Accuracy | Random |
-|------|----------|--------|
-| cut (quadrant) | 99% | 25% |
-| bit (q-type) | 100% | 25% |
-| halt (t_first) | 70% | 64% |
-| **cos(W_cut, W_bit)** | 0.058 | - |
-
-### Sync K ↔ T_θ
-
-| Run | Pearson | Spearman | Verdict |
-|-----|---------|----------|---------|
-| Baseline | 0.35 | 0.39 | ✓ DETECTED |
-| Curriculum | 0.37 | 0.42 | ✓ DETECTED |
-
----
-
-## Key Findings
-
-1. **K pilote T_θ** via la loss (curriculum weighted)
-2. **cut ⊥ bit** dans l'espace latent (cos ≈ 0.06)
-3. **halt n'est pas linéairement séparable** (+6pp vs random)
-4. **La dynamique est un objet second ordre** (sur trajectoires, pas feature statique)
-
----
-
-## Theoretical Background
-
-### Ω-Syntax
-- Fixed structure, independent of learning
-- `V_trig(x)` = ideal profile, `questionTrig(i, p)` = structural truth
-
-### Dynamic Kernel K
-- `approx_t(x)`: monotone refinement (intervals shrink)
-- `val_t(x,i)`: once true, stays true
-- `t_first^K(σ)`: structural difficulty measure
-
-### P_vec
-- **cut**: quadrant (depends only on angle)
-- **bit**: question type (depends only on index)
-- **halt**: learning difficulty (depends only on dynamics)
-
----
-
-## Configuration
-
-| Parameter | Value |
-|-----------|-------|
-| Angles | 360 |
-| Questions | 8 types |
-| Dataset | 2880 samples |
-| Model params | 4,321 |
-| Epochs | 60 |
-| Curriculum weights | EARLY:1, MID:2, LATE:3, NEVER:4 |
+The "failure" of simple curriculum ≠ failure of method: it shows that on this saturated task, the dynamic order doesn't improve raw performance, but **K structure is there and learnable**.
 
 ---
 
@@ -170,9 +137,3 @@ torch>=2.0
 numpy
 scipy
 ```
-
----
-
-## License
-
-Part of the Theory of Dynamic Orders for Computation project.

@@ -1,0 +1,18 @@
+13:38:24 | === Training Theory T_θ ===
+13:38:24 | Log file: ablation_runs/baseline_s1\training_20251209_133824.log
+13:38:24 | Config: TrainConfig(epochs=60, lr=0.001, batch_size=64, seed=1, angle_embed_dim=16, index_embed_dim=8, hidden_dim=64, checkpoint_epochs=[0, 1, 5, 10, 20, 50], output_dir='ablation_runs/baseline_s1')
+13:38:24 | 
+13:38:24 | Generating dataset...
+13:38:24 | Dataset: 2015 train, 432 val, 433 test
+13:38:24 | Model: 4,321 parameters
+13:38:27 | Epoch   0 | Loss: inf | Train: 0.653 (1315/2015) | Val: 0.637 (275/432)
+13:38:27 | Epoch   1 | Loss: 0.6175 | Train: 0.764 (1540/2015) | Val: 0.722 (312/432)
+13:38:28 | Epoch   5 | Loss: 0.3614 | Train: 0.850 (1713/2015) | Val: 0.824 (356/432)
+13:38:29 | Epoch  10 | Loss: 0.0727 | Train: 0.984 (1983/2015) | Val: 0.995 (430/432)
+13:38:31 | Epoch  20 | Loss: 0.0388 | Train: 0.990 (1995/2015) | Val: 0.995 (430/432)
+13:38:34 | Epoch  50 | Loss: 0.0223 | Train: 0.988 (1991/2015) | Val: 0.981 (424/432)
+13:38:34 | Final Test Accuracy: 0.991 (429/433)
+13:38:34 | 
+13:38:34 | === Training Complete ===
+13:38:34 | Checkpoints saved to: ablation_runs/baseline_s1/
+13:38:34 | Log saved to: ablation_runs/baseline_s1\training_20251209_133824.log

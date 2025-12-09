@@ -1,0 +1,22 @@
+13:39:46 | === Curriculum Training (weighted mode) ===
+13:39:46 | Log: ablation_runs/uniform_s2\curriculum_20251209_133946.log
+13:39:46 | Config: CurriculumConfig(epochs=60, lr=0.001, batch_size=64, seed=42, angle_embed_dim=16, index_embed_dim=8, hidden_dim=64, mode='weighted', weight_early=1.0, weight_mid=1.0, weight_late=1.0, weight_never=1.0, phase1_epochs=10, phase2_epochs=20, checkpoint_epochs=[0, 1, 5, 10, 20, 50], output_dir='ablation_runs/uniform_s2', t_first_K_path='checkpoints_trig/t_first_K.json')
+13:39:46 | Shuffle-K: False
+13:39:46 | 
+13:39:46 | Loading t_first^K from checkpoints_trig/t_first_K.json...
+13:39:46 |   Loaded 2880 difficulty values
+13:39:46 | Generating dataset...
+13:39:46 |   Train: 2015 total, by difficulty: {'MID': 557, 'EARLY': 434, 'NEVER': 1024}
+13:39:46 |   Val: 432 total, by difficulty: {'NEVER': 220, 'EARLY': 99, 'MID': 113}
+13:39:46 | Model: 4,321 parameters
+13:39:49 | Epoch   0 | Loss: inf | Train: 0.505 | Val: 0.475
+13:39:50 | Epoch   1 | Loss: 0.6213 | Train: 0.754 | Val: 0.775
+13:39:51 | Epoch   5 | Loss: 0.3089 | Train: 0.909 | Val: 0.935
+13:39:52 | Epoch  10 | Loss: 0.0922 | Train: 0.958 | Val: 0.968
+13:39:54 | Epoch  20 | Loss: 0.0420 | Train: 0.979 | Val: 0.984
+13:39:58 | Epoch  50 | Loss: 0.0229 | Train: 0.987 | Val: 0.984
+13:39:58 | 
+Final Test Accuracy: 0.991
+13:39:58 | 
+13:39:58 | === Curriculum Training Complete ===
+13:39:58 | Checkpoints saved to: ablation_runs/uniform_s2/

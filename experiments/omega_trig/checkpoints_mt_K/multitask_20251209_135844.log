@@ -1,0 +1,20 @@
+13:58:44 | === Multi-Task Training (λ_halt=0.5) ===
+13:58:44 | Log: checkpoints_mt_K\multitask_20251209_135844.log
+13:58:44 | Config: MultiTaskConfig(epochs=60, lr=0.001, batch_size=64, seed=42, angle_embed_dim=16, index_embed_dim=8, hidden_dim=64, lambda_halt=0.5, n_halt_classes=4, shuffle_K=False, checkpoint_epochs=[0, 1, 5, 10, 20, 50], output_dir='checkpoints_mt_K', t_first_K_path='checkpoints_trig/t_first_K.json')
+13:58:44 | 
+13:58:44 | Loading t_first^K from checkpoints_trig/t_first_K.json...
+13:58:44 |   Loaded 2880 difficulty values
+13:58:44 | Generating dataset...
+13:58:44 |   Train: 2015, halt dist: {1: 557, 0: 434, 3: 1024}
+13:58:44 | Model: 6,157 parameters
+13:58:47 | Epoch   0 | Loss: inf (y:inf, h:inf) | Y: 0.486 | Halt: 0.116
+13:58:48 | Epoch   1 | Loss: 1.3072 (y:0.6571, h:1.3002) | Y: 0.856 | Halt: 0.569
+13:58:51 | Epoch   5 | Loss: 0.2809 (y:0.1277, h:0.3063) | Y: 0.970 | Halt: 0.951
+13:58:54 | Epoch  10 | Loss: 0.1068 (y:0.0493, h:0.1151) | Y: 0.991 | Halt: 0.981
+13:58:59 | Epoch  20 | Loss: 0.0666 (y:0.0332, h:0.0667) | Y: 0.991 | Halt: 0.977
+13:59:12 | Epoch  50 | Loss: 0.0382 (y:0.0189, h:0.0385) | Y: 0.993 | Halt: 0.984
+13:59:12 | 
+Final Test: Y=0.998, Halt=0.991
+13:59:12 | 
+13:59:12 | === Multi-Task Training Complete ===
+13:59:12 | Checkpoints saved to: checkpoints_mt_K/

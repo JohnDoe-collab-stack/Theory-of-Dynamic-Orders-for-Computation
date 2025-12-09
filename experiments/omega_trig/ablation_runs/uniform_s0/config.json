@@ -1,0 +1,26 @@
+{
+  "epochs": 60,
+  "lr": 0.001,
+  "batch_size": 64,
+  "seed": 42,
+  "angle_embed_dim": 16,
+  "index_embed_dim": 8,
+  "hidden_dim": 64,
+  "mode": "weighted",
+  "weight_early": 1.0,
+  "weight_mid": 1.0,
+  "weight_late": 1.0,
+  "weight_never": 1.0,
+  "phase1_epochs": 10,
+  "phase2_epochs": 20,
+  "checkpoint_epochs": [
+    0,
+    1,
+    5,
+    10,
+    20,
+    50
+  ],
+  "output_dir": "ablation_runs/uniform_s0",
+  "t_first_K_path": "checkpoints_trig/t_first_K.json"
+}

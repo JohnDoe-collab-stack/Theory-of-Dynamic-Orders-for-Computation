@@ -1,0 +1,9 @@
+13:51:15 | === Multi-Task Training (λ_halt=0.5) ===
+13:51:15 | Log: checkpoints_mt_K\multitask_20251209_135115.log
+13:51:15 | Config: MultiTaskConfig(epochs=60, lr=0.001, batch_size=64, seed=42, angle_embed_dim=16, index_embed_dim=8, hidden_dim=64, lambda_halt=0.5, n_halt_classes=4, shuffle_K=False, checkpoint_epochs=[0, 1, 5, 10, 20, 50], output_dir='checkpoints_mt_K', t_first_K_path='checkpoints_trig/t_first_K.json')
+13:51:15 | 
+13:51:15 | Loading t_first^K from checkpoints_trig/t_first_K.json...
+13:51:15 |   Loaded 2880 difficulty values
+13:51:15 | Generating dataset...
+13:51:15 |   Train: 2015, halt dist: {1: 557, 0: 434, 3: 1024}
+13:51:15 | Model: 6,157 parameters

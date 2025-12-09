@@ -1,0 +1,8 @@
+{
+  "epoch": 0,
+  "acc_train": 0.5052109181141439,
+  "acc_val": 0.47453703703703703,
+  "loss": null,
+  "E_train_size": 1018,
+  "E_val_size": 205
+}

@@ -277,7 +277,7 @@ def evaluate(model: TrigTheoryModel,
 # Main Training Loop
 # ============================================================================
 
-def train_with_curriculum(config: CurriculumConfig) -> Dict:
+def train_with_curriculum(config: CurriculumConfig, shuffle_K: bool = False) -> Dict:
     """Full curriculum training."""
     torch.manual_seed(config.seed)
     random.seed(config.seed)
@@ -286,12 +286,18 @@ def train_with_curriculum(config: CurriculumConfig) -> Dict:
     log(f"=== Curriculum Training ({config.mode} mode) ===")
     log(f"Log: {log_file}")
     log(f"Config: {config}")
+    log(f"Shuffle-K: {shuffle_K}")
     log("")
     
     # Load t_first^K
     log(f"Loading t_first^K from {config.t_first_K_path}...")
     t_first_K = load_t_first_K(config.t_first_K_path)
     log(f"  Loaded {len(t_first_K)} difficulty values")
+    
+    # Apply shuffle if requested (ablation control)
+    if shuffle_K:
+        log("  SHUFFLING t_first^K values (random control)")
+        t_first_K = shuffle_t_first_K(t_first_K, seed=config.seed + 1)
     
     # Generate dataset
     log("Generating dataset...")
@@ -390,14 +396,35 @@ def train_with_curriculum(config: CurriculumConfig) -> Dict:
 # Main
 # ============================================================================
 
+def shuffle_t_first_K(t_first_K: Dict[Tuple, float], seed: int = 42) -> Dict[Tuple, float]:
+    """Shuffle t_first^K values to create a random control."""
+    random.seed(seed)
+    keys = list(t_first_K.keys())
+    vals = list(t_first_K.values())
+    random.shuffle(vals)
+    return {k: v for k, v in zip(keys, vals)}
+
+
 def main():
     import argparse
     
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Curriculum training with K-guided weights")
     parser.add_argument("--mode", type=str, default="weighted", choices=["weighted", "phased"])
     parser.add_argument("--epochs", type=int, default=60)
     parser.add_argument("--output-dir", type=str, default="checkpoints_curriculum")
     parser.add_argument("--t-first-K", type=str, default="checkpoints_trig/t_first_K.json")
+    parser.add_argument("--seed", type=int, default=42, help="Random seed")
+    
+    # Ablation: weight arguments
+    parser.add_argument("--w-early", type=float, default=1.0, help="Weight for EARLY examples")
+    parser.add_argument("--w-mid", type=float, default=2.0, help="Weight for MID examples")
+    parser.add_argument("--w-late", type=float, default=3.0, help="Weight for LATE examples")
+    parser.add_argument("--w-never", type=float, default=4.0, help="Weight for NEVER examples")
+    
+    # Ablation: shuffle K
+    parser.add_argument("--shuffle-K", action="store_true", 
+                        help="Shuffle t_first^K values (random control)")
+    
     args = parser.parse_args()
     
     config = CurriculumConfig(
@@ -405,9 +432,20 @@ def main():
         epochs=args.epochs,
         output_dir=args.output_dir,
         t_first_K_path=args.t_first_K,
+        seed=args.seed,
+        weight_early=args.w_early,
+        weight_mid=args.w_mid,
+        weight_late=args.w_late,
+        weight_never=args.w_never,
     )
     
-    results = train_with_curriculum(config)
+    # If shuffle-K is enabled, we need to shuffle after loading
+    if args.shuffle_K:
+        log("NOTE: --shuffle-K enabled, randomizing t_first^K assignments")
+        # Modify the training function to accept shuffle flag
+        # For now, we'll handle this by modifying the loaded data
+    
+    results = train_with_curriculum(config, shuffle_K=args.shuffle_K)
     return results
 
 

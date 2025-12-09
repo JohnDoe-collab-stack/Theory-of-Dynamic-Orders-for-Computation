@@ -1,0 +1,23 @@
+13:40:25 | === Curriculum Training (weighted mode) ===
+13:40:25 | Log: ablation_runs/shuffle_s2\curriculum_20251209_134025.log
+13:40:25 | Config: CurriculumConfig(epochs=60, lr=0.001, batch_size=64, seed=42, angle_embed_dim=16, index_embed_dim=8, hidden_dim=64, mode='weighted', weight_early=1.0, weight_mid=2.0, weight_late=3.0, weight_never=4.0, phase1_epochs=10, phase2_epochs=20, checkpoint_epochs=[0, 1, 5, 10, 20, 50], output_dir='ablation_runs/shuffle_s2', t_first_K_path='checkpoints_trig/t_first_K.json')
+13:40:25 | Shuffle-K: True
+13:40:25 | 
+13:40:25 | Loading t_first^K from checkpoints_trig/t_first_K.json...
+13:40:25 |   Loaded 2880 difficulty values
+13:40:25 |   SHUFFLING t_first^K values (random control)
+13:40:25 | Generating dataset...
+13:40:25 |   Train: 2015 total, by difficulty: {'NEVER': 998, 'MID': 567, 'EARLY': 450}
+13:40:25 |   Val: 432 total, by difficulty: {'NEVER': 224, 'MID': 107, 'EARLY': 101}
+13:40:25 | Model: 4,321 parameters
+13:40:28 | Epoch   0 | Loss: inf | Train: 0.505 | Val: 0.475
+13:40:28 | Epoch   1 | Loss: 0.6165 | Train: 0.755 | Val: 0.762
+13:40:29 | Epoch   5 | Loss: 0.3403 | Train: 0.880 | Val: 0.907
+13:40:31 | Epoch  10 | Loss: 0.1121 | Train: 0.965 | Val: 0.965
+13:40:34 | Epoch  20 | Loss: 0.0422 | Train: 0.981 | Val: 0.986
+13:40:41 | Epoch  50 | Loss: 0.0230 | Train: 0.986 | Val: 0.986
+13:40:41 | 
+Final Test Accuracy: 0.984
+13:40:41 | 
+13:40:41 | === Curriculum Training Complete ===
+13:40:41 | Checkpoints saved to: ablation_runs/shuffle_s2/

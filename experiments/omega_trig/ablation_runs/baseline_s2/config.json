@@ -1,0 +1,18 @@
+{
+  "epochs": 60,
+  "lr": 0.001,
+  "batch_size": 64,
+  "seed": 2,
+  "angle_embed_dim": 16,
+  "index_embed_dim": 8,
+  "hidden_dim": 64,
+  "checkpoint_epochs": [
+    0,
+    1,
+    5,
+    10,
+    20,
+    50
+  ],
+  "output_dir": "ablation_runs/baseline_s2"
+}
