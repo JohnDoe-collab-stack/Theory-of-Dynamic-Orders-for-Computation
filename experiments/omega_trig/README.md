@@ -1,98 +1,138 @@
 # Ω-Trig Experiment
 
-> **Experimental validation of the Dynamic Order Theory framework**
-
-This experiment tests whether a neural network T_θ can learn both:
-1. The **static truth** of a fixed structure Ω
-2. The **dynamic order** of how truths emerge over time (encoded by kernel K)
+> **Validation of the Ω–K–E dissociation framework**
 
 ---
 
-## What is This About?
+## What Makes This Different
 
-### The Core Question
+In standard ML, three concepts are conflated:
+- Where data comes from
+- What labels mean
+- How we measure success
 
-In standard ML, we train models to predict labels. But can a model also learn **when** different facts become "knowable" - i.e., the temporal structure of knowledge acquisition?
+This experiment **explicitly separates** them:
 
-### The Setup
+| Component | Role | In ω-Trig |
+|-----------|------|-----------|
+| **Ω (World)** | Source of instances | 360 angles × 8 question types |
+| **K (Oracle)** | Source of truth (static + dynamic) | y* + halt_rank |
+| **E (Evaluation)** | How we judge T_θ | Accuracy, sync, P_vec, ablations... |
 
-- **Ω (Omega)**: A fixed "world" of trigonometric facts (e.g., "sin(45°) ≥ 0")
-- **K (Kernel)**: A dynamic process that reveals facts over time (monotone refinement)
-- **T_θ (Theory)**: A neural network that learns to approximate both Ω and K
-
-### The Key Finding
-
-> **K's temporal structure is REAL and LEARNABLE.**
-> 
-> When we ask T_θ to predict both the truth (y*) and the difficulty class (halt_rank), 
-> it achieves 99% accuracy on both - but only when K's structure is preserved.
-> Shuffling K's assignments destroys the halt prediction (→ 50% random chance).
+**Key insight**: K provides signals; E judges what T_θ does with them. They are not the same thing.
 
 ---
 
-## Architecture
+## The Setup
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      Ω (Fixed World)                        │
-│                                                             │
-│  360 angles × 8 question types = 2880 facts                 │
-│  Example: "Is sin(45°) ≥ 0.5?" → True                       │
+│                      Ω (World)                              │
+│  Generates instances σ = (angle, question)                  │
+│  360 × 8 = 2880 possible facts                              │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                      K (Dynamic Kernel)                     │
-│                                                             │
-│  Simulates a refinement process over time:                  │
-│  - approx_t(x): interval approximation at time t            │
-│  - val_t(x,i): truth value at time t (monotone: 0→1 only)   │
-│  - t_first^K(σ): first time fact σ becomes true             │
-│  - halt_rank: EARLY / MID / LATE / NEVER                    │
+│                      K (Oracle)                             │
+│  Provides truth for each σ:                                 │
+│  - y*(σ): static truth (is sin(θ) ≥ r?)                     │
+│  - halt_rank(σ): dynamic difficulty (EARLY/MID/LATE/NEVER)  │
+│  For T_θ, K is a BLACK BOX external source of labels        │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
-│                      T_θ (Neural Theory)                    │
-│                                                             │
-│  Input: (angle, question_type)                              │
-│  Output: y_hat (truth prediction) + halt_logits (4 classes) │
-│  Loss: BCE(y*) + λ · CE(halt_rank_K)                        │
+│                      T_θ (Learner)                          │
+│  Neural approximator trained on K's signals                 │
+│  Input: σ → Output: ŷ, halt_logits                          │
+└─────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────┐
+│                      E (Evaluation)                         │
+│  Multiple independent metrics:                              │
+│  - Accuracy on y* and halt_rank                             │
+│  - Sync: correlation t_first^K ↔ t_first^T                  │
+│  - P_vec: cut ⊥ bit in latent space                         │
+│  - Theory gradient: E(T_e1) ⊆ E(T_e2)                       │
+│  - Ablations: baseline / uniform / K-guided / shuffle       │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## What This Enables
+
+Because Ω, K, and E are separated, we can ask questions that are usually impossible:
+
+1. **Same Ω, same K, different E**: How does T_θ look under different evaluation lenses?
+2. **Same Ω, different K**: What if the oracle changes (different dynamics)?
+3. **K as black box**: T_θ doesn't know how K computes halt_rank - it just learns to match it
 
 ---
 
 ## Key Results
 
-### Multi-Task Validation (3 seeds, λ=0.5)
+### Multi-Task Validation (3 seeds)
 
 | Condition | Y Accuracy | Halt Accuracy | Δ Halt |
 |-----------|------------|---------------|--------|
 | **K-real** | 99.2% ± 0.3% | **98.7% ± 0.4%** | - |
 | **Shuffle** | 98.9% ± 0.5% | 48.1% ± 2.6% | **-50.6pp** |
 
-**Interpretation**: When K's structure is shuffled, halt prediction drops to random chance (~50%), while truth prediction remains high. This proves K encodes real information.
+**Shuffle test**: When we destroy K's structure (permute halt_rank assignments), T_θ cannot learn halt anymore. This proves K encodes real, structured information.
 
 ### Confusion Matrix (K-real)
 
-| True \ Pred | EARLY | MID | LATE | NEVER |
-|-------------|-------|-----|------|-------|
-| **EARLY** | 99 | 2 | 0 | 0 |
-| **MID** | 2 | 135 | 0 | 0 |
-| **LATE** | 0 | 0 | 0 | 0 |
-| **NEVER** | 0 | 0 | 0 | 195 |
+| True \ Pred | EARLY | MID | NEVER |
+|-------------|-------|-----|-------|
+| **EARLY** | 99 | 2 | 0 |
+| **MID** | 2 | 135 | 0 |
+| **NEVER** | 0 | 0 | 195 |
 
-**Overall: 99.1%** - The model correctly classifies all difficulty levels, not just the majority class.
+**99.1% overall** - T_θ learns all classes, not just majority.
 
 ### λ Sweep
 
-| λ_halt | K Halt | Shuffle Halt | Δ |
-|--------|--------|--------------|---|
+| λ_halt | K-real Halt | Shuffle Halt | Δ |
+|--------|-------------|--------------|---|
 | 0.0 | 4% | 13% | -9pp |
 | 0.1 | 98% | 50% | **+48pp** |
 | 0.5 | 99% | 50% | **+49pp** |
 | 1.0 | 99% | 50% | **+49pp** |
 
-**Interpretation**: Without the halt objective (λ=0), no one learns. With λ>0, K-real succeeds while Shuffle fails.
+---
+
+## What We Validated
+
+### ✅ Framework Works
+
+1. **Ω–K–E separation is implementable** and produces meaningful experiments
+2. **T_θ can synchronize with external oracle K** (black box)
+3. **K's structure matters**: shuffle destroys the halt signal (+50pp gap)
+4. **Multiple evaluation lenses** (E) give consistent story
+
+### ⚠️ Scope Limitations
+
+1. **This is a proof-of-concept**, not a claim about "deep dynamics"
+2. **ω-trig is a toy domain**: task saturates at ~99%
+3. **Curriculum alone doesn't help**: weighting by K doesn't improve Y accuracy on this easy task
+4. **K may be "flat"**: halt_rank could be a simple function of inputs (we don't prove otherwise)
+
+### 🔮 What Would Strengthen the Claim
+
+A future Ω where:
+- Without K, T_θ fails or generalizes poorly
+- With K, T_θ gains robustly
+- And this gain is not trivial to explain
+
+---
+
+## Honest Summary
+
+**What we showed**: T_θ can learn to match an external oracle K, and shuffle-control proves K is structured, not noise.
+
+**What we did NOT show**: That K is "irréductiblement dynamique" or that K is indispensable for performance.
+
+**The conceptual contribution**: Explicit separation of Ω (world) / K (oracle) / E (evaluation), which is rarely done in ML.
 
 ---
 
@@ -100,28 +140,21 @@ In standard ML, we train models to predict labels. But can a model also learn **
 
 ```
 omega_trig/
-├── README.md                 # This file
-├── trig_kernel.py            # Ω-syntax: angles, profiles, questions
-├── dataset_trig.py           # Dataset generation and splitting
-├── model_T.py                # Basic T_θ model
-├── dynamic_trig_kernel.py    # K: monotone refinement process
-├── pvec_trig.py              # P_vec: cut/bit/halt classification
+├── trig_kernel.py            # Ω-syntax
+├── dynamic_trig_kernel.py    # K: oracle with halt_rank
+├── dataset_trig.py           # Data from Ω
+├── model_T.py                # T_θ architecture
 │
-├── train_T.py                # Baseline training (y* only)
-├── train_T_curriculum.py     # Curriculum training (weighted by K)
-├── train_T_multitask.py      # Multi-task: y* + halt_rank_K
+├── train_T.py                # Baseline (y* only)
+├── train_T_multitask.py      # Multi-task (y* + halt_rank)
+├── train_T_curriculum.py     # Curriculum (weighted by K)
 │
-├── analysis_T.py             # Theory gradient analysis
-├── analysis_pvec_trig.py     # P_vec linear probes
-├── sync_K_T.py               # K ↔ T_θ synchronization
+├── analysis_T.py             # E: theory gradient
+├── sync_K_T.py               # E: K ↔ T correlation
+├── analysis_pvec_trig.py     # E: latent structure
 │
-├── run_ablation.py           # Curriculum ablation (multi-seed)
-├── run_mt_validation.py      # Multi-task validation + λ sweep
-├── visualize_results.py      # Confusion matrix + barplots
-│
-├── checkpoints_*/            # Saved model checkpoints
-├── mt_validation/            # Multi-seed validation results
-├── mt_lambda_sweep/          # λ sweep results
+├── run_mt_validation.py      # Multi-seed + λ sweep
+├── visualize_results.py      # Confusion matrix + plots
 └── figures/                  # Generated visualizations
 ```
 
@@ -129,93 +162,16 @@ omega_trig/
 
 ## Quick Start
 
-### 1. Basic Training
-
 ```bash
-# Train baseline model (predicts y* only)
-python train_T.py
-
-# Check theory gradient
-python analysis_T.py
-```
-
-### 2. Dynamic Kernel
-
-```bash
-# Test the dynamic kernel
-python dynamic_trig_kernel.py
-
-# Export difficulty map
-python -c "from dynamic_trig_kernel import *; DynamicTrigKernel(list(range(360))).export_t_first_K()"
-```
-
-### 3. Multi-Task Validation (Main Experiment)
-
-```bash
-# Run full validation (K-real vs Shuffle, 3 seeds + λ sweep)
+# 1. Run the main experiment
 python run_mt_validation.py --seeds 3 --lambda-sweep
 
-# Generate figures
+# 2. Generate figures
 python visualize_results.py
-```
 
-### 4. Additional Analyses
-
-```bash
-# K ↔ T synchronization
+# 3. Check sync K ↔ T
 python sync_K_T.py
-
-# P_vec structure (cut ⊥ bit)
-python analysis_pvec_trig.py
 ```
-
----
-
-## Theoretical Background
-
-### Ω-Structure
-
-The "world" Ω consists of:
-- **X_trig**: 360 discrete angles (k/360 × 2π)
-- **I_trig**: 8 question types (sign_sin, sign_cos, sin_ge_r, cos_ge_r for r ∈ {-0.5, 0, 0.5})
-- **V_trig(x)**: The ideal trigonometric profile for angle x
-- **question_trig(i, p)**: Evaluates question i on profile p → {0, 1}
-
-### Dynamic Kernel K
-
-K simulates a "refinement over time" process:
-- **approx_t(x)**: At time t, we have an interval approximation of sin/cos
-- **val_t(x,i)**: Truth value at time t (monotone: once true, stays true)
-- **t_first^K(σ)**: The first time fact σ becomes definitively true
-- **halt_rank**: Classification into EARLY (t<3), MID (3≤t<6), LATE (6≤t<10), NEVER (doesn't stabilize)
-
-### P_vec Structure
-
-The latent space of T_θ exhibits orthogonal structure:
-- **cut**: Which quadrant (depends only on angle) → 99% decodable
-- **bit**: Which question type (depends only on index) → 100% decodable
-- **cos(W_cut, W_bit) ≈ 0.06**: Nearly orthogonal
-
----
-
-## What We Learned
-
-### ✅ Validated
-
-1. **K is not arbitrary**: Shuffling K destroys halt prediction
-2. **T_θ can learn K**: 99% halt accuracy when explicitly asked
-3. **Sync K ↔ T exists**: Pearson ≈ 0.35 correlation on stabilization times
-4. **P_vec is clean**: cut ⊥ bit in latent space
-
-### ⚠️ Neutral
-
-1. **Curriculum alone doesn't help**: On this easy task, weighting by K doesn't improve Y accuracy
-2. **Task is nearly saturated**: 97-99% accuracy leaves little room for improvement
-
-### 🔮 Future
-
-1. **Harder Ω**: Test on more complex structures where K matters for performance
-2. **Compositional tasks**: Mini-circuits, micro-proofs, where depth matters
 
 ---
 
@@ -235,7 +191,6 @@ scikit-learn
 
 Part of the **Theory of Dynamic Orders for Computation** project.
 
-The key insight validated here:
-> *"The temporal structure K, defined at the trajectory level of a dynamic kernel, 
-> is real, stable, and exploitable by a neural network T 
-> as soon as it becomes an explicit learning objective."*
+> *The key contribution is the explicit separation of Ω (world), K (oracle), and E (evaluation) —
+> a modular architecture that enables experiments about T_θ's relationship to truth,
+> not just its loss on labels.*
