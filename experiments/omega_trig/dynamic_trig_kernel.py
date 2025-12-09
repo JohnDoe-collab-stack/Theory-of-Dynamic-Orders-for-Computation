@@ -321,6 +321,41 @@ class DynamicTrigKernel:
             "t_first_max": max(finite_t) if finite_t else float('inf'),
         }
 
+    def export_t_first_K(self, output_path: str = "checkpoints_trig/t_first_K.json"):
+        """
+        Export t_first^K(σ) for all σ = (angle, question) to JSON.
+        
+        Format: List of {"angle": int, "kind": str, "threshold": float|null, "t_first": float}
+        """
+        import json
+        import os
+        
+        traces = self.compute_traces()
+        records = []
+        
+        for (angle, q), trace in traces.items():
+            # Find t_first
+            t_first = float('inf')
+            for t, v_t in enumerate(trace):
+                if v_t == 1:
+                    if all(v == 1 for v in trace[t:]):
+                        t_first = float(t)
+                        break
+            
+            records.append({
+                "angle": angle,
+                "kind": q.kind,
+                "threshold": q.threshold,
+                "t_first": t_first if not math.isinf(t_first) else None
+            })
+        
+        os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+        with open(output_path, 'w') as f:
+            json.dump(records, f, indent=2)
+        
+        print(f"Exported {len(records)} t_first^K values to {output_path}")
+        return output_path
+
 
 # ==========================
 # 4. Démo minimale
