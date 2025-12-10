@@ -1,0 +1,54 @@
+{
+  "k_real": {
+    "n_formulas": 99,
+    "avg_fuel_efficiency": 0.7048549011561489,
+    "avg_strict_steps": 2.6262626262626263,
+    "avg_t_first": 2.6262626262626263,
+    "valley_rate": 0.0,
+    "by_atoms": {
+      "2": {
+        "fuel_efficiency": 0.6481208446725688,
+        "strict_steps": 2.3793103448275863,
+        "t_first": 2.3793103448275863
+      },
+      "3": {
+        "fuel_efficiency": 0.5709617180205415,
+        "strict_steps": 4.357142857142857,
+        "t_first": 4.357142857142857
+      },
+      "4": {
+        "fuel_efficiency": 0.6666666666666667,
+        "strict_steps": 6.166666666666667,
+        "t_first": 6.166666666666667
+      }
+    }
+  },
+  "late_halt": {
+    "n_formulas": 99,
+    "avg_fuel_efficiency": 0.500467412365808,
+    "avg_strict_steps": 5.1313131313131315,
+    "avg_t_first": 5.1313131313131315,
+    "valley_rate": 0.0,
+    "by_atoms": {
+      "2": {
+        "fuel_efficiency": 0.4322803633148461,
+        "strict_steps": 4,
+        "t_first": 4
+      },
+      "3": {
+        "fuel_efficiency": 0.2789449112978525,
+        "strict_steps": 8,
+        "t_first": 8
+      },
+      "4": {
+        "fuel_efficiency": 0.1923076923076923,
+        "strict_steps": 16,
+        "t_first": 16
+      }
+    }
+  },
+  "delta": {
+    "fuel_efficiency_pp": 20.438748879034087,
+    "strict_steps": -2.505050505050505
+  }
+}
