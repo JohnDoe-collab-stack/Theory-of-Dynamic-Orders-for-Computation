@@ -7,171 +7,280 @@ import Mathlib.Tactic.Ring
 
 namespace LogicDissoc
 
+open Finset
+open scoped BigOperators
+
 /-!
 # Global Sphere and Multi-Cone Monotonicity
 
-This module formalizes the "Global Sphere" framework given in the specification.
-It generalizes dynamic orders by considering a global D-dimensional profile
-constrained within a bounded sphere, with local monotonicity cones.
+This module formalizes the "Global Sphere" framework for dynamic order theory.
+It provides a foundation for reasoning about termination and stability in
+systems with multi-dimensional resource profiles.
+
+## Main Concepts
+
+- **GlobalProfile**: A D-dimensional vector of natural numbers representing state resources
+- **InSphere**: The global sphere B_R = {v | ∑ᵢ vᵢ ≤ R}
+- **StrictStep**: A transition that strictly decreases at least one coordinate
+- **Fuel**: The ℓ₁-norm (sum) of a profile, serving as a termination measure
+- **Valley**: An absorbing set where no strict descent is possible
+- **Mode**: Local transition with designated active coordinates
+
+## Key Theorems
+
+- `strict_step_decreases_sum`: Every strict step decreases fuel by ≥ 1
+- `max_trajectory_length`: Chains of strict steps have length ≤ R
+- `zero_fuel_stable`: States with zero fuel are stable
 -/
 
-variable {State : Type} -- Abstract state space
-
 -- ============================================================================
--- 1. GLOBAL PROFILE & SPHERE
+-- § 1. Global Profile & Sphere
 -- ============================================================================
 
-/-- A global profile is a vector of D natural numbers. -/
+variable {State : Type}
+
+/-- A global profile is a vector of `D` natural numbers. -/
 def GlobalProfile (D : Nat) := Fin D → Nat
 
 namespace GlobalProfile
 
--- ============================================================================
--- 2. DYNAMICS & MONOTONICITY
--- ============================================================================
-
-
 variable {D : Nat}
 
-/-- The sum of components (L1-norm) represents the total resource/rank. -/
+/-- The sum of components (ℓ₁-norm) represents the total resource/rank. -/
+@[simp]
 def sum (v : GlobalProfile D) : Nat :=
   ∑ i : Fin D, v i
 
-/-- The Global Sphere B_R: set of profiles with sum ≤ R. -/
+/-- The global sphere B_R: profiles with sum ≤ R. -/
+@[simp]
 def InSphere (R : Nat) (v : GlobalProfile D) : Prop :=
   v.sum ≤ R
 
-/-- Being in the sphere is a decidable property. -/
+/-- Being in the sphere is decidable. -/
 instance (R : Nat) (v : GlobalProfile D) : Decidable (InSphere R v) :=
   inferInstanceAs (Decidable (v.sum ≤ R))
+
+/-- The zero profile (all coordinates = 0). -/
+def zero : GlobalProfile D := fun _ => 0
+
+@[simp]
+theorem sum_zero : (zero : GlobalProfile D).sum = 0 := by
+  unfold sum zero
+  simp only [Finset.sum_const_zero]
+
+/-- Zero profile is in every sphere. -/
+theorem zero_in_sphere (R : Nat) : InSphere R (zero : GlobalProfile D) := by
+  unfold InSphere
+  rw [sum_zero]
+  exact Nat.zero_le R
+
+/-- Pointwise order on profiles. -/
+instance : LE (GlobalProfile D) where
+  le v w := ∀ i, v i ≤ w i
+
+theorem le_def (v w : GlobalProfile D) : v ≤ w ↔ ∀ i, v i ≤ w i := Iff.rfl
+
+/-- Pointwise ≤ implies sum ≤. -/
+theorem sum_le_sum_of_le {v w : GlobalProfile D} (h : v ≤ w) : v.sum ≤ w.sum := by
+  simp only [sum]
+  apply Finset.sum_le_sum
+  intro i _
+  exact h i
 
 end GlobalProfile
 
 -- ============================================================================
--- 2. DYNAMICS & MONOTONICITY
+-- § 2. Dynamics & Monotonicity
 -- ============================================================================
 
 variable {D : Nat}
-
--- Abstract transition relation on states.
 variable (Step : State → State → Prop)
-
--- A system is equipped with a global profile map L.
 variable (L : State → GlobalProfile D)
 
--- 1. Weak Monotonicity: No coordinate increases.
+/-- Weak monotonicity: Step x y implies no coordinate increases. -/
 def WeakMono (x y : State) : Prop :=
   Step x y → ∀ i : Fin D, L y i ≤ L x i
 
-/-- 2. Strict Step: Weakly monotone AND at least one coordinate decreases. -/
+/-- Strict step: weakly monotone with at least one strictly decreasing coordinate. -/
 def StrictStep (x y : State) : Prop :=
   WeakMono Step L x y ∧ Step x y ∧ ∃ i : Fin D, L y i < L x i
 
-/-- Global Strictness: Every step in the system is a strict step. -/
+/-- Global strictness: every transition is a strict step. -/
 def GloballyStrict : Prop :=
   ∀ x y, Step x y → StrictStep Step L x y
 
 -- ============================================================================
--- 3. CONES & MODES
+-- § 3. Cones & Modes
 -- ============================================================================
 
-/-- A Cone is simply a subset of the Global Profile space (usually defined by constraints). -/
+/-- A cone is a subset of the profile space (defined by constraints). -/
 def Cone (D : Nat) := Set (GlobalProfile D)
 
-/-- A Mode m defines a specific transition relation and a set of active coordinates. -/
+/-- A mode defines a labeled transition relation with active coordinates. -/
 structure Mode (State : Type) (D : Nat) where
-  Label : Type
-  step_m : Label → State → State → Prop
-  active_coords : Label → Set (Fin D)
+  Label        : Type
+  step_m       : Label → State → State → Prop
+  activeCoords : Label → Set (Fin D)
 
-/-- Multi-mode Monotonicity: For a mode m, active coords decrease strictly. -/
-def ModeMono (M : Mode State D) (label : M.Label) (x y : State) : Prop :=
+/-- Mode-level monotonicity: active coords don't increase, at least one decreases. -/
+def ModeMono (M : Mode State D) (L : State → GlobalProfile D)
+    (label : M.Label) (x y : State) : Prop :=
   M.step_m label x y →
-    (∀ i ∈ M.active_coords label, L y i ≤ L x i) ∧
-    (∃ i ∈ M.active_coords label, L y i < L x i)
+    (∀ i ∈ M.activeCoords label, L y i ≤ L x i) ∧
+    (∃ i ∈ M.activeCoords label, L y i < L x i)
+
+/-- Two modes have disjoint active coordinates for given labels. -/
+def DisjointModes (M₁ M₂ : Mode State D) (l₁ : M₁.Label) (l₂ : M₂.Label) : Prop :=
+  M₁.activeCoords l₁ ∩ M₂.activeCoords l₂ = ∅
 
 -- ============================================================================
--- 4. STABILITY & VALLEYS
+-- § 4. Stability & Valleys
 -- ============================================================================
 
-/-- A state is Stable if no transition is possible (or strictly no descent). -/
+/-- A state is stable if it has no strictly descending successor.
+    Plateau transitions (same profile) are allowed, but no strict descent. -/
 def Stable (x : State) : Prop :=
-  ∀ y, ¬ Step x y
+  ∀ y, Step x y → ¬ StrictStep Step L x y
 
-/-- A Valley is a set of states that is Absorbing and Internally Stable. -/
+/-- A valley is an absorbing set with internal stability. -/
 structure Valley (V : Set State) : Prop where
-  absorb : ∀ x y, x ∈ V → Step x y → y ∈ V
-  stable : ∀ x, x ∈ V → Stable Step x
+  absorb : ∀ {x y}, x ∈ V → Step x y → y ∈ V
+  stable : ∀ {x}, x ∈ V → Stable Step L x
+
+/-- The set of stable states. -/
+def StableSet : Set State :=
+  { x | Stable Step L x }
+
+/-- Under GloballyStrict, stable means no successor at all. -/
+theorem stable_iff_no_succ (h_strict : GloballyStrict Step L) (x : State) :
+    Stable Step L x ↔ ∀ y, ¬ Step x y := by
+  constructor
+  · intro h_stable y h_step
+    have := h_strict x y h_step
+    exact h_stable y h_step this
+  · intro h_no_succ y h_step _
+    exact h_no_succ y h_step
 
 -- ============================================================================
--- 5. COMBINATORIAL BOUNDS (Trajectory Length)
+-- § 5. Fuel & Termination Bounds
 -- ============================================================================
 
-/--
-The "Fuel" of a state is its profile sum.
-If the system is GloballyStrict, every step reduces the Fuel by at least 1.
--/
-def Fuel (x : State) : Nat := (L x).sum
+/-- The fuel of a state is the sum of its profile components. -/
+@[simp]
+def Fuel (x : State) : Nat :=
+  (L x).sum
 
-lemma strict_step_decreases_sum (x y : State) (h : StrictStep Step L x y) :
-    (L y).sum < (L x).sum := by
-  -- Unpack strict step
-  have h_mono : ∀ i, L y i ≤ L x i := h.1 h.2.1
+/-- A strict step strictly decreases fuel. -/
+theorem strict_step_decreases_sum (x y : State) (h : StrictStep Step L x y) :
+    Fuel L y < Fuel L x := by
+  have h_mono : ∀ i : Fin D, L y i ≤ L x i := h.1 h.2.1
   rcases h.2.2 with ⟨k, hk_strict⟩
-
-  rw [GlobalProfile.sum, GlobalProfile.sum]
+  simp only [Fuel, GlobalProfile.sum]
   apply Finset.sum_lt_sum
-  · intro i _
-    exact h_mono i
-  · use k
-    simp only [Finset.mem_univ, true_and]
-    exact hk_strict
+  · intro i _; exact h_mono i
+  · exact ⟨k, Finset.mem_univ k, hk_strict⟩
 
-/--
-Theorem: Max Trajectory Length.
-Any chain of strict steps starting from a state with sum ≤ R has length at most R.
--/
+/-- Strict step decreases fuel by at least 1. -/
+theorem strict_step_fuel_succ (x y : State) (h : StrictStep Step L x y) :
+    Fuel L x ≥ Fuel L y + 1 :=
+  Nat.succ_le_of_lt (strict_step_decreases_sum Step L x y h)
+
+/-- A state with zero fuel is stable under GloballyStrict. -/
+theorem zero_fuel_stable (x : State) (h_fuel : Fuel L x = 0)
+    (_ : GloballyStrict Step L) : Stable Step L x := by
+  intro y h_step h_strict_step
+  have decrease := strict_step_decreases_sum Step L x y h_strict_step
+  simp only [Fuel, GlobalProfile.sum] at h_fuel decrease
+  rw [h_fuel] at decrease
+  exact Nat.not_lt_zero _ decrease
+
+/-- Max trajectory length: strict chains from sphere have length ≤ R. -/
 theorem max_trajectory_length (R : Nat) (chain : Nat → State) (len : Nat)
     (h_start : GlobalProfile.InSphere R (L (chain 0)))
     (h_step : ∀ k, k < len → StrictStep Step L (chain k) (chain (k + 1))) :
     len ≤ R := by
-  -- The fuel at step k is f_k. We know f_{k+1} < f_k.
-  let f := fun k => (L (chain k)).sum
-  have f_strict : ∀ k, k < len → f (k + 1) < f k := by
-    intro k hk
-    apply strict_step_decreases_sum Step L
-    exact h_step k hk
+  -- fuel at step k
+  let f : Nat → Nat := fun k => Fuel L (chain k)
 
-  -- A strictly decreasing sequence of Nats of length L implies f(0) ≥ L
-  -- (since f(L) ≥ 0 and each step adds at least 1 difference)
-  -- Helper lemma: in a strictly decreasing sequence of nats, f(0) ≥ f(k) + k
+  -- fuel strictly decreases along the chain
+  have f_strict : ∀ k, k < len → f (k + 1) < f k := fun k hk =>
+    strict_step_decreases_sum Step L (chain k) (chain (k + 1)) (h_step k hk)
+
+  -- In a strictly decreasing sequence of Nats, f 0 ≥ f k + k
   have trajectory_fuel_bound : ∀ k, k ≤ len → f 0 ≥ f k + k := by
     intro k hk
     induction k with
     | zero => simp
     | succ i ih =>
-      have hi_le : i ≤ len := Nat.le_of_succ_le hk
-      have ih_apply := ih hi_le
-      have h_step_i : i < len := Nat.lt_of_succ_le hk
-      have decrease := f_strict i h_step_i
-      -- We have f(i) > f(i+1), so f(i) ≥ f(i+1) + 1
-      have ineq : f i ≥ f (i + 1) + 1 := Nat.succ_le_of_lt decrease
-      -- Combine: f(0) ≥ f(i) + i ≥ f(i+1) + 1 + i = f(i+1) + (i+1)
-      calc
-        f 0 ≥ f i + i := ih_apply
-        _   ≥ (f (i + 1) + 1) + i := Nat.add_le_add_right ineq i
-        _   = f (i + 1) + (i + 1) := by ring
+        have hi_le : i ≤ len := Nat.le_of_succ_le hk
+        have ih_apply := ih hi_le
+        have h_step_i : i < len := Nat.lt_of_succ_le hk
+        have decrease := f_strict i h_step_i
+        have ineq : f i ≥ f (i + 1) + 1 := Nat.succ_le_of_lt decrease
+        calc
+          f 0 ≥ f i + i := ih_apply
+          _   ≥ (f (i + 1) + 1) + i := Nat.add_le_add_right ineq i
+          _   = f (i + 1) + (i + 1) := by ring
 
-  -- Apply to k = len
   have final_bound := trajectory_fuel_bound len (Nat.le_refl len)
-  -- Since f(len) ≥ 0, we have f(0) ≥ len
   have f0_ge_len : f 0 ≥ len := calc
     f 0 ≥ f len + len := final_bound
     _   ≥ 0 + len := Nat.add_le_add_right (Nat.zero_le _) len
-    _   = len := by simp
+    _   = len := Nat.zero_add len
 
-  -- Conclusion
-  unfold GlobalProfile.InSphere at h_start
   exact Nat.le_trans f0_ge_len h_start
+
+-- ============================================================================
+-- § 6. Valley Characterization
+-- ============================================================================
+
+/-- The set of states with minimal fuel (= 0). -/
+def MinimalFuelSet : Set State :=
+  { x | Fuel L x = 0 }
+
+/-- Under GloballyStrict, minimal fuel states form a valley. -/
+theorem minimal_fuel_valley (h_strict : GloballyStrict Step L) :
+    Valley Step L (MinimalFuelSet L) where
+  absorb := by
+    intro x y hx h_step
+    simp only [MinimalFuelSet, Set.mem_setOf_eq, Fuel] at hx ⊢
+    have stable_x := zero_fuel_stable Step L x hx h_strict
+    have strict := h_strict x y h_step
+    exact absurd strict (stable_x y h_step)
+  stable := by
+    intro x hx
+    exact zero_fuel_stable Step L x hx h_strict
+
+/-- Fuel is a Lyapunov function: strictly decreasing on transitions. -/
+theorem fuel_lyapunov (h_strict : GloballyStrict Step L) (x y : State) (h_step : Step x y) :
+    Fuel L y < Fuel L x :=
+  strict_step_decreases_sum Step L x y (h_strict x y h_step)
+
+-- ============================================================================
+-- § 7. Mode Switching
+-- ============================================================================
+
+/-- A mode schedule assigns a mode label at each step. -/
+structure ModeSchedule (M : Mode State D) where
+  schedule : Nat → M.Label
+
+/-- Execution follows a mode schedule if each step uses the scheduled mode. -/
+def FollowsSchedule (M : Mode State D) (sched : ModeSchedule M)
+    (chain : Nat → State) : Prop :=
+  ∀ k, M.step_m (sched.schedule k) (chain k) (chain (k + 1))
+
+-- ============================================================================
+-- § 8. Helpers
+-- ============================================================================
+
+/-- A state is in the sphere if its profile sum is ≤ R. -/
+@[simp]
+def InSphereState (R : Nat) (x : State) : Prop :=
+  GlobalProfile.InSphere R (L x)
+
+/-- Equivalence for sphere membership. -/
+theorem in_sphere_iff (R : Nat) (x : State) :
+    InSphereState L R x ↔ Fuel L x ≤ R := by
+  simp [InSphereState, GlobalProfile.InSphere, Fuel]
 
 end LogicDissoc
