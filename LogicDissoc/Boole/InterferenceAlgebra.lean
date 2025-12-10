@@ -29,17 +29,13 @@ instance : Coe NonNegRat ℚ where
 instance : Zero NonNegRat where
   zero := ⟨0, by rfl⟩
 
-/-- 1 is non-negative (requires 0 ≤ 1 for ℚ). -/
+/-- 1 is non-negative (0 ≤ 1 for ℚ). -/
 instance : One NonNegRat where
-  one := ⟨1, by
-    -- 0 ≤ 1 for ℚ (ordered field)
-    sorry⟩
+  one := ⟨1, by native_decide⟩
 
-/-- Sum of non-negatives is non-negative (requires add_nonneg). -/
+/-- Sum of non-negatives is non-negative. -/
 instance : Add NonNegRat where
-  add a b := ⟨a.1 + b.1, by
-    -- 0 ≤ a + b when 0 ≤ a and 0 ≤ b
-    sorry⟩
+  add a b := ⟨a.1 + b.1, Rat.add_nonneg a.2 b.2⟩
 
 instance : LE NonNegRat where
   le a b := a.1 ≤ b.1
@@ -47,17 +43,13 @@ instance : LE NonNegRat where
 instance : LT NonNegRat where
   lt a b := a.1 < b.1
 
-/-- Max of non-negatives is non-negative (requires le_max_of_le_left). -/
+/-- Max of non-negatives is non-negative. -/
 instance : Max NonNegRat where
-  max a b := ⟨max a.1 b.1, by
-    -- 0 ≤ max a b when 0 ≤ a
-    sorry⟩
+  max a b := ⟨max a.1 b.1, le_max_of_le_left a.2⟩
 
-/-- Min of non-negatives is non-negative (requires le_min). -/
+/-- Min of non-negatives is non-negative. -/
 instance : Min NonNegRat where
-  min a b := ⟨min a.1 b.1, by
-    -- 0 ≤ min a b when 0 ≤ a and 0 ≤ b
-    sorry⟩
+  min a b := ⟨min a.1 b.1, le_min a.2 b.2⟩
 
 instance : AddCommMonoid NonNegRat where
   add := (· + ·)
