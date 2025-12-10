@@ -83,6 +83,7 @@ inductive CanonicalPair
   | minPlus   -- (min, +)     sur WithTop ℚ
   | plusPlus  -- (+, +)       sur ℚ≥0
   | plusMax   -- (+, max)     sur ℚ≥0
+  | maxMax    -- (max, max)   sur WithBot ℚ (Lattice)
 deriving DecidableEq, Repr
 
 /-! # 2. Algèbre d'interférence abstraite -/
@@ -174,8 +175,13 @@ def IsAdditive : Prop :=
   (∀ x y z, A.opPar x y = A.opPar x z → y = z) ∧
   (∀ x y, A.opSeq x y = A.opSeq y x)
 
-/-- (max,+) ou (min,+) : forme tropicale idempotente. -/
-def IsMaxPlus : Prop := IsTropicalIdempotent A
+/-- (max,+) : forme tropicale stricte (Choice/Cumul). -/
+def IsMaxPlus : Prop :=
+  IsTropicalIdempotent A ∧ ¬ (∀ x, A.opSeq x x = x)
+
+/-- (max, max) : Treillis distributif (Choice/Choice). -/
+def IsMaxMax : Prop :=
+  IsTropicalIdempotent A ∧ (∀ x, A.opSeq x x = x)
 def IsMinPlus : Prop := IsTropicalIdempotent A
 
 /-- (+,+) : cas additif, ⊙ non idempotente. -/
@@ -193,15 +199,29 @@ def satisfiesShape (cp : CanonicalPair) : Prop :=
   | CanonicalPair.minPlus  => IsMinPlus A
   | CanonicalPair.plusPlus => IsPlusPlus A
   | CanonicalPair.plusMax  => IsPlusMax A
+  | CanonicalPair.maxMax   => IsMaxMax A
 
 /--
 Théorème de classification partielle (constructif) :
-Si ⊕ est idempotente, l'algèbre est de forme tropicale (maxPlus).
+Si ⊕ est idempotente et ⊙ non-idempotente, l'algèbre est de forme tropicale (maxPlus).
 -/
-theorem classification_tropical (h : ∀ x, A.opPar x x = x) :
+theorem classification_tropical_strict
+    (h_idem : ∀ x, A.opPar x x = x)
+    (h_seq_not_idem : ¬ (∀ x, A.opSeq x x = x)) :
     satisfiesShape A CanonicalPair.maxPlus := by
   unfold satisfiesShape IsMaxPlus IsTropicalIdempotent
-  exact ⟨h, A.seq_comm⟩
+  exact ⟨⟨h_idem, A.seq_comm⟩, h_seq_not_idem⟩
+
+/--
+Théorème de classification partielle :
+Si ⊕ est idempotente et ⊙ idempotente, l'algèbre est un treillis (maxMax).
+-/
+theorem classification_lattice
+    (h_idem : ∀ x, A.opPar x x = x)
+    (h_seq_idem : ∀ x, A.opSeq x x = x) :
+    satisfiesShape A CanonicalPair.maxMax := by
+  unfold satisfiesShape IsMaxMax IsTropicalIdempotent
+  exact ⟨⟨h_idem, A.seq_comm⟩, h_seq_idem⟩
 
 /--
 Théorème de classification pour le cas additif avec ⊙ idempotente.
@@ -234,9 +254,16 @@ theorem classification_theorem :
     ∃ cp : CanonicalPair, satisfiesShape A cp := by
   cases A.dichotomy with
   | inl h_idem =>
-      -- Cas ⊕ idempotente : forme tropicale (max,+)
-      use CanonicalPair.maxPlus
-      exact classification_tropical A h_idem
+      -- Cas ⊕ idempotente : on distingue selon ⊙
+      cases A.seq_dichotomy with
+      | inl h_seq_idem =>
+          -- ⊙ idempotente : forme (max, max)
+          use CanonicalPair.maxMax
+          exact classification_lattice A h_idem h_seq_idem
+      | inr h_seq_not_idem =>
+          -- ⊙ non idempotente : forme (max, +)
+          use CanonicalPair.maxPlus
+          exact classification_tropical_strict A h_idem h_seq_not_idem
   | inr h_cancel =>
       -- Cas ⊕ cancellative : on utilise seq_dichotomy pour distinguer
       cases A.seq_dichotomy with
@@ -264,9 +291,17 @@ namespace InterferenceAlgebra
 
 variable (A : InterferenceAlgebra)
 
-/-! Note: IsMaxPlusModel and IsMinPlusModel require tropical semiring structures
-    on WithBot ℚ and WithTop ℚ from Mathlib.Algebra.Tropical.
-    For now, we only define the NonNegRat models. -/
+/-- Être isomorphe à (max,+) sur `WithBot ℚ`. -/
+def IsMaxPlusModel : Prop :=
+  ∃ (e : A.S ≃ WithBot ℚ),
+    (∀ x y, e (A.opPar x y) = max (e x) (e y)) ∧
+    (∀ x y, e (A.opSeq x y) = (e x) + (e y))
+
+/-- Être isomorphe à (min,+) sur `WithTop ℚ`. -/
+def IsMinPlusModel : Prop :=
+  ∃ (e : A.S ≃ WithTop ℚ),
+    (∀ x y, e (A.opPar x y) = min (e x) (e y)) ∧
+    (∀ x y, e (A.opSeq x y) = (e x) + (e y))
 
 /-- Être isomorphe à (+,+) sur `NonNegRat`. -/
 def IsPlusPlusModel : Prop :=
