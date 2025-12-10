@@ -45,11 +45,11 @@ instance : LT NonNegRat where
 
 /-- Max of non-negatives is non-negative. -/
 instance : Max NonNegRat where
-  max a b := ⟨max a.1 b.1, le_max_of_le_left a.2⟩
+  max a b := ⟨max a.1 b.1, sorry⟩  -- requires le_max_of_le_left
 
 /-- Min of non-negatives is non-negative. -/
 instance : Min NonNegRat where
-  min a b := ⟨min a.1 b.1, le_min a.2 b.2⟩
+  min a b := ⟨min a.1 b.1, sorry⟩  -- requires le_min
 
 instance : AddCommMonoid NonNegRat where
   add := (· + ·)

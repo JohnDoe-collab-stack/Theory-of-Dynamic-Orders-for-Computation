@@ -525,11 +525,17 @@ P: Problems decidable in polynomial time.
 
 A decision problem φ : Input → Bool is in P if there exists a
 TimeControl with polynomial bound that correctly decides φ.
+
+The `total` field ensures the machine terminates for every input.
 -/
 structure InP (Input : Type) (φ : Input → Bool) where
   control : TimeControl Input
   halt : CalcState → Bool
   poly : IsPolynomial control.bound
+  -- Totality: for every input, there exists a terminating run
+  total : ∀ x, ∃ (chain : Nat → CalcState) (len : Nat),
+            control.Run x chain len
+  -- Correctness: every valid run gives the right answer
   correct : ∀ x chain len,
     control.Run x chain len →
     halt (chain len) = φ x
@@ -567,7 +573,7 @@ structure InNP (Input Certificate : Type) [Inhabited Certificate] (φ : Input �
     verifyHalt (chain len) = true →
     φ x = true
 
-/-- P ⊆ NP: every problem in P is also in NP (structural inclusion) -/
+/-- P ⊆ NP: every problem in P is also in NP (trivial certificate). -/
 def P_subset_NP {Input : Type} {φ : Input → Bool} (h : InP Input φ) :
     InNP Input Unit φ where
   verifyControl := {
@@ -580,15 +586,18 @@ def P_subset_NP {Input : Type} {φ : Input → Bool} (h : InP Input φ) :
   certSize := fun _ => 0
   certPoly := ⟨1, 0, fun _ => by simp⟩
   verifyPoly := h.poly
-  -- Completeness and soundness require additional axioms about decidability
+  -- Completeness: use totality to get a run, then correctness
   completeness := fun x hx => by
-    -- A P machine that decides φ provides a witness via its run
-    -- This requires existential witness from machine execution
-    sorry
+    rcases h.total x with ⟨chain, len, hRun⟩
+    refine ⟨(), chain, len, hRun, ?_⟩
+    have h_eq := h.correct x chain len hRun
+    rw [h_eq, hx]
+  -- Soundness: verifier is the P machine
   soundness := fun x _ chain len hRun hHalt => by
-    -- If verifier accepts, original P machine would also accept
     have hRun' : h.control.Run x chain len := hRun
-    exact h.correct x chain len hRun' ▸ hHalt
+    have h_eq := h.correct x chain len hRun'
+    rw [← h_eq]
+    exact hHalt
 
 /-! ### Complexity Class Definitions -/
 
