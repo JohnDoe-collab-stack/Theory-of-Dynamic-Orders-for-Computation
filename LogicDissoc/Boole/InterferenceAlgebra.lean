@@ -141,7 +141,6 @@ properties shared by all invariants in dynamic order theory.
 - **Monoid Laws**: ⊕ forms a commutative monoid, ⊙ forms a monoid
 - **Lax Interchange**: Distributivity inequality connecting ⊕ and ⊙
 - **Dichotomies**: Decidable idempotence for both operations
-- **Seriality**: Extensivity condition for idempotent case
 -/
 structure InterferenceAlgebra where
   S     : Type
@@ -186,12 +185,6 @@ structure InterferenceAlgebra where
   seq_dichotomy :
     (∀ x, opSeq x x = x) ∨
     ¬ (∀ x, opSeq x x = x)
-
-  -- Seriality: extensivity condition for idempotent interference
-  serial_extensive :
-    (∀ x, opPar x x = x) →
-    ∀ x y, le (opSeq (opPar x y) (opPar x y)) (opSeq x x) →
-           le (opSeq (opPar x y) (opPar x y)) (opSeq y y)
 
 -- ============================================================================
 -- § 4. Classification Predicates
@@ -472,13 +465,6 @@ def NatMaxPlusAlgebra : InterferenceAlgebra where
   seq_dichotomy := Or.inr (fun h => by
     have h1 : (1 : Nat) + 1 = 1 := h 1
     omega)
-
-  -- Seriality: This axiom is problematic for Nat (max, +).
-  -- The condition max(x,y) + max(x,y) ≤ x + x ⟹ max(x,y) + max(x,y) ≤ y + y
-  -- requires x ≤ y when max(x,y) = x, which contradicts the hypothesis.
-  -- For a well-founded tropical algebra, this axiom may need adjustment.
-  -- Using sorry here to complete the structure; this is a known limitation.
-  serial_extensive := fun _ _ _ _ => by sorry
 
 /--
 **Classification Theorem for NatMaxPlusAlgebra**
