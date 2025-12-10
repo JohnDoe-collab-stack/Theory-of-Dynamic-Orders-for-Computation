@@ -6,7 +6,7 @@ package «LogicDissoc» where
 
 lean_lib «LogicDissoc» where
   srcDir := "LogicDissoc"
-  roots := #[`LogicDissoc, `Sphere, `FYI, `Boole.AbstractKernel, `Boole.OmegaInstances]
+  roots := #[`LogicDissoc, `Sphere, `FYI, `SphereInstances, `Boole.AbstractKernel, `Boole.OmegaInstances]
 
 
 
