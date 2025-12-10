@@ -330,11 +330,10 @@ inductive CalcStep : CalcState → CalcState → Prop where
 namespace CalcStep
 
 /-- CalcStep always decreases fuel (strict step) -/
-theorem decreases_fuel (s t : CalcState) (h : CalcStep s t) : t.fuel < s.fuel := by
-  cases h with
-  | oracle s h_budget => exact RevACProfile.callOracle_decreases_fuel s.profile h_budget
-  | ch s h_depth => exact RevACProfile.stepCH_decreases_fuel s.profile h_depth
-  | rank s h_rank => exact RevACProfile.stepRank_decreases_fuel s.profile h_rank
+theorem decreases_fuel : ∀ {s t : CalcState}, CalcStep s t → t.fuel < s.fuel
+  | _, _, .oracle s h => RevACProfile.callOracle_decreases_fuel s.profile h
+  | _, _, .ch s h => RevACProfile.stepCH_decreases_fuel s.profile h
+  | _, _, .rank s h => RevACProfile.stepRank_decreases_fuel s.profile h
 
 /-- CalcStep preserves non-negativity (trivial for Nat) -/
 theorem fuel_nonneg (s : CalcState) : s.fuel ≥ 0 := Nat.zero_le _
@@ -356,21 +355,16 @@ then the total number of steps cannot exceed the initial fuel.
 theorem calc_chain_bounded (chain : Nat → CalcState) (len : Nat)
     (h_chain : ValidChain chain len) :
     len ≤ (chain 0).fuel := by
-  -- By strong induction: each step decreases fuel by ≥ 1,
-  -- so len steps require initial fuel ≥ len
-  induction len with
+  induction len generalizing chain with
   | zero => exact Nat.zero_le _
   | succ n ih =>
-    -- The first step decreases fuel
     have h_first : CalcStep (chain 0) (chain 1) := h_chain 0 (Nat.zero_lt_succ n)
-    have h_dec : (chain 1).fuel < (chain 0).fuel := CalcStep.decreases_fuel _ _ h_first
-    -- Remaining chain also valid
-    have h_rest : ValidChain (fun k => chain (k + 1)) n := by
-      intro k hk
-      exact h_chain (k + 1) (Nat.succ_lt_succ hk)
-    -- IH gives n ≤ (chain 1).fuel
-    have h_ih : n ≤ (chain 1).fuel := ih h_rest
-    -- Combine: n + 1 ≤ (chain 0).fuel
+    have h_dec : (chain 1).fuel < (chain 0).fuel := CalcStep.decreases_fuel h_first
+    have h_rest : ValidChain (fun k => chain (k + 1)) n := fun k hk =>
+      h_chain (k + 1) (Nat.succ_lt_succ hk)
+    have h_ih : n ≤ (chain 1).fuel := ih (fun k => chain (k + 1)) h_rest
+    -- n ≤ (chain 1).fuel ∧ (chain 1).fuel < (chain 0).fuel
+    -- ⟹ n + 1 ≤ (chain 0).fuel
     omega
 
 /-- Corollary: if we start in sphere R, chain length ≤ R -/
@@ -390,8 +384,9 @@ no more, no less (in the worst case).
 theorem max_strict_steps (s : CalcState) :
     ∀ chain len, chain 0 = s → ValidChain chain len → len ≤ s.fuel := by
   intro chain len h_start h_valid
-  rw [h_start]
-  exact calc_chain_bounded chain len h_valid
+  have h := calc_chain_bounded chain len h_valid
+  simp only [← h_start]
+  exact h
 
 /-! ### Examples -/
 
