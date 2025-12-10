@@ -6,11 +6,9 @@ package «LogicDissoc» where
 
 lean_lib «LogicDissoc» where
   srcDir := "LogicDissoc"
-  roots := #[`LogicDissoc, `Boole]
+  roots := #[`LogicDissoc, `Boole, `Sphere]
 
-@[default_target]
-lean_exe «logicdissoc» where
-  root := `Main
+
 
 require mathlib from git
   "https://github.com/leanprover-community/mathlib4.git"
