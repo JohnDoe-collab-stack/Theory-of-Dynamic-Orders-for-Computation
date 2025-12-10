@@ -758,4 +758,352 @@ theorem fuel_is_maxPlus_shape :
 
 end PVecInterference
 
+-- ============================================================================
+-- § 11. Internal Kolmogorov Complexity (K_internal)
+-- ============================================================================
+
+/-!
+## 11. Internal Kolmogorov Complexity
+
+This section formalizes a notion of **descriptive complexity** internal to
+the P_vec / Sphere framework. This is analogous to Kolmogorov complexity,
+but measured in terms of `pvec_fuel` rather than program length.
+
+### Key Insight
+
+In standard Kolmogorov complexity:
+- K(x) = length of shortest program that outputs x
+
+In our framework:
+- K_internal(x) = minimal `pvec_fuel` of any P_vec that describes x
+
+### Role in Complexity Theory
+
+This internal complexity provides a bridge between:
+- **Descriptive complexity** (how much information is needed to specify x)
+- **Computational complexity** (how much fuel/time is needed to process x)
+
+The cut/bit trade-off becomes visible here:
+- `cutLike` descriptions are cheaper (structural/logical)
+- `bitLike` descriptions are more expensive (raw information)
+-/
+
+namespace KolmogorovInternal
+
+open LogicDissoc
+
+/-! ### Cost Extraction from P_omega_role -/
+
+/-- Extract cut-like cost from omega role -/
+def cutCost : P_omega_role → Nat
+  | .none => 0
+  | .cutLike n => n + 1
+  | .bitLike _ _ => 0
+
+/-- Extract bit-like cost from omega role -/
+def bitCost : P_omega_role → Nat
+  | .none => 0
+  | .cutLike _ => 0
+  | .bitLike n _ => n + 10
+
+/-- Total omega cost = cut + bit -/
+theorem omega_cost_decomposition (r : P_omega_role) :
+    omega_toNat r = cutCost r + bitCost r := by
+  cases r with
+  | none => rfl
+  | cutLike n => simp [omega_toNat, cutCost, bitCost]
+  | bitLike n b => simp [omega_toNat, cutCost, bitCost]
+
+/-! ### P_vec Cost Decomposition -/
+
+/-- Gödel cost component of P_vec -/
+def pvec_godelCost (v : P_vec) : Nat := godel_toNat v.godel
+
+/-- Cut cost component of P_vec -/
+def pvec_cutCost (v : P_vec) : Nat := cutCost v.omega
+
+/-- Bit cost component of P_vec -/
+def pvec_bitCost (v : P_vec) : Nat := bitCost v.omega
+
+/-- Rank cost component of P_vec -/
+def pvec_rankCost (v : P_vec) : Nat := rank_toNat v.rank
+
+/-- Fuel decomposes into Gödel + Cut + Bit + Rank -/
+theorem pvec_fuel_decomposition (v : P_vec) :
+    pvec_fuel v = pvec_godelCost v + pvec_cutCost v + pvec_bitCost v + pvec_rankCost v := by
+  simp only [pvec_fuel, pvec_godelCost, pvec_cutCost, pvec_bitCost, pvec_rankCost]
+  rw [omega_cost_decomposition]
+  omega
+
+/-! ### Description Relation -/
+
+/-- A description relation: when does P_vec v describe object x? -/
+structure DescriptionSystem (α : Type) where
+  describes : P_vec → α → Prop
+
+/-- The set of valid descriptions for an object -/
+def validDescriptions (D : DescriptionSystem α) (x : α) : Set P_vec :=
+  { v | D.describes v x }
+
+/-- An object is describable if it has at least one description -/
+def isDescribable (D : DescriptionSystem α) (x : α) : Prop :=
+  ∃ v, D.describes v x
+
+/-! ### Internal Kolmogorov Complexity -/
+
+/--
+**Internal Kolmogorov Complexity**
+
+The minimal fuel required to describe an object x in the P_vec framework.
+This is the fundamental complexity measure of the Sphere/Quadrant system.
+
+Note: Like classical K(x), this is a mathematical definition that may not
+be computable in general. Its power lies in theoretical reasoning.
+
+Implementation: We define this as the minimum over fuel values of valid descriptions.
+The actual value computation requires Classical, but the definition is constructive.
+-/
+noncomputable def K_internal (D : DescriptionSystem α) (x : α) (h : isDescribable D x) : Nat :=
+  WellFounded.min Nat.lt_wfRel.wf
+    { n : Nat | ∃ v, D.describes v x ∧ pvec_fuel v = n }
+    (by obtain ⟨v, hv⟩ := h; exact ⟨pvec_fuel v, v, hv, rfl⟩)
+
+/-- K_internal is achieved by some description -/
+theorem K_internal_achieved (D : DescriptionSystem α) (x : α) (h : isDescribable D x) :
+    ∃ v, D.describes v x ∧ pvec_fuel v = K_internal D x h := by
+  -- K_internal is defined as WellFounded.min, so we use min_mem
+  have h_mem := WellFounded.min_mem Nat.lt_wfRel.wf
+    { n : Nat | ∃ v, D.describes v x ∧ pvec_fuel v = n }
+    (by obtain ⟨v, hv⟩ := h; exact ⟨pvec_fuel v, v, hv, rfl⟩)
+  -- h_mem : K_internal D x h ∈ { n | ∃ v, D.describes v x ∧ pvec_fuel v = n }
+  simp only [Set.mem_setOf_eq] at h_mem
+  exact h_mem
+
+/-- K_internal is minimal -/
+theorem K_internal_minimal (D : DescriptionSystem α) (x : α) (h : isDescribable D x)
+    (v : P_vec) (hv : D.describes v x) :
+    K_internal D x h ≤ pvec_fuel v := by
+  -- We show K_internal ≤ pvec_fuel v by contradiction via not_lt_min
+  by_contra h_neg
+  push_neg at h_neg
+  -- h_neg : pvec_fuel v < K_internal D x h
+  have h_in_set : pvec_fuel v ∈ { n : Nat | ∃ w, D.describes w x ∧ pvec_fuel w = n } := by
+    simp only [Set.mem_setOf_eq]
+    exact ⟨v, hv, rfl⟩
+  have h_not_lt := WellFounded.not_lt_min Nat.lt_wfRel.wf
+    { n : Nat | ∃ w, D.describes w x ∧ pvec_fuel w = n }
+    (by obtain ⟨w, hw⟩ := h; exact ⟨pvec_fuel w, w, hw, rfl⟩)
+    h_in_set
+  exact h_not_lt h_neg
+
+/-! ### Cut/Bit Trade-Off -/
+
+/-- Total cut cost of a description -/
+def totalCutCost (v : P_vec) : Nat := pvec_cutCost v
+
+/-- Total bit cost of a description -/
+def totalBitCost (v : P_vec) : Nat := pvec_bitCost v
+
+/--
+**Cut/Bit Trade-Off Principle** (Statement)
+
+For any description system, if an object requires a certain amount of
+"information content", that content must be paid either in cut-like
+(structural/logical) cost or bit-like (raw information) cost.
+
+This is the formal basis for complexity trade-off arguments.
+-/
+structure CutBitTradeOff (D : DescriptionSystem α) where
+  /-- Lower bound on total description cost -/
+  lowerBound : α → Nat
+  /-- The bound is achieved -/
+  bound_valid : ∀ x v, D.describes v x → lowerBound x ≤ pvec_fuel v
+  /-- Trade-off: reducing cut cost forces bit cost up (and vice versa) -/
+  tradeoff : ∀ x v w,
+    D.describes v x → D.describes w x →
+    pvec_cutCost v < pvec_cutCost w →
+    pvec_fuel v = pvec_fuel w →
+    pvec_bitCost v > pvec_bitCost w
+
+/-! ### Complexity Classes via K_internal -/
+
+/-- A problem is "K-easy" if all positive instances have low K_internal -/
+def isKEasy (D : DescriptionSystem α) (L : α → Bool) (bound : Nat → Nat) : Prop :=
+  ∀ x, L x = true →
+    ∀ h : isDescribable D x,
+      K_internal D x h ≤ bound (size x)
+  where size : α → Nat := fun _ => 0  -- placeholder size function
+
+/-- A problem is "K-hard" if some positive instances have high K_internal -/
+def isKHard (D : DescriptionSystem α) (L : α → Bool) (bound : Nat → Nat) : Prop :=
+  ∃ x, L x = true ∧
+    ∀ h : isDescribable D x,
+      K_internal D x h > bound (size x)
+  where size : α → Nat := fun _ => 0  -- placeholder size function
+
+/-! ### Connection to TimeControl -/
+
+/--
+**Fundamental Bridge Conjecture** (Statement)
+
+If a TimeControl T decides language L, then for every positive instance x,
+there exists a P_vec description of the computation path with fuel bounded
+by T.bound(size(x)).
+
+This would connect descriptive complexity to computational complexity.
+-/
+def FundamentalBridge (D : DescriptionSystem α) (T : TimeControl α) (L : α → Bool) : Prop :=
+  ∀ x, L x = true →
+    ∃ v, D.describes v x ∧ pvec_fuel v ≤ T.bound (T.size x)
+
+end KolmogorovInternal
+
+-- ============================================================================
+-- § 12. Concrete Instance: CNF Formulas (SAT)
+-- ============================================================================
+
+/-!
+## 12. Concrete Instance: CNF Formulas
+
+This section provides a **concrete** `DescriptionSystem` for CNF formulas,
+connecting the abstract K_internal framework to the SAT problem.
+
+### Key Insight
+
+A CNF formula φ can be characterized by:
+- **Number of variables**: How many distinct variables appear
+- **Number of clauses**: How many clauses the formula has
+- **Maximum clause size**: The largest clause
+
+These three metrics map naturally to the P_vec components:
+- `godel` ↔ number of variables (structural complexity)
+- `omega.cutLike` ↔ number of clauses (proof structure)
+- `omega.bitLike` ↔ maximum clause size (information density)
+
+This gives a **descriptive complexity** for SAT instances.
+-/
+
+namespace CNFInstance
+
+open LogicDissoc KolmogorovInternal
+
+/-! ### CNF Types -/
+
+/-- A literal is a signed variable: positive = true, negative = negated -/
+abbrev Literal := Int
+
+/-- A clause is a disjunction of literals -/
+abbrev Clause := List Literal
+
+/-- A CNF formula is a conjunction of clauses -/
+abbrev CNF := List Clause
+
+/-! ### CNF Metrics -/
+
+/-- Get the absolute value of a literal (the variable index) -/
+def literalVar (l : Literal) : Nat := l.natAbs
+
+/-- Get all variables in a clause -/
+def clauseVars (c : Clause) : List Nat := c.map literalVar
+
+/-- Get all variables in a CNF formula (with duplicates) -/
+def cnfVarsRaw (φ : CNF) : List Nat := φ.flatMap clauseVars
+
+/-- Maximum variable index in a CNF (0 if empty) -/
+def numVars (φ : CNF) : Nat :=
+  match φ.flatMap clauseVars with
+  | [] => 0
+  | vars => vars.foldl max 0
+
+/-- Number of clauses in a CNF -/
+def numClauses (φ : CNF) : Nat := φ.length
+
+/-- Size of a clause (number of literals) -/
+def clauseSize (c : Clause) : Nat := c.length
+
+/-- Maximum clause size in a CNF (0 if empty) -/
+def maxClauseSize (φ : CNF) : Nat :=
+  match φ with
+  | [] => 0
+  | cs => cs.foldl (fun acc c => max acc (clauseSize c)) 0
+
+/-- Total size of a CNF (sum of all clause sizes) -/
+def totalSize (φ : CNF) : Nat :=
+  φ.foldl (fun acc c => acc + clauseSize c) 0
+
+/-! ### CNF Description System -/
+
+/--
+**CNF Description Relation** (Simplified)
+
+A P_vec `v` describes a CNF formula `φ` if:
+1. `godel_toNat v.godel ≥ numVars φ` (encodes enough variables)
+2. `omega_toNat v.omega ≥ numClauses φ + maxClauseSize φ` (encodes structure)
+
+This uses the total omega cost to cover both clause count and clause width.
+-/
+def CNF_describes (v : P_vec) (φ : CNF) : Prop :=
+  godel_toNat v.godel ≥ numVars φ ∧
+  omega_toNat v.omega ≥ numClauses φ + maxClauseSize φ
+
+/-- The concrete DescriptionSystem for CNF formulas -/
+def CNF_DescriptionSystem : DescriptionSystem CNF where
+  describes := CNF_describes
+
+/-! ### Describability -/
+
+/-- Witness construction: use bitLike with large enough parameter -/
+def cnf_witness (φ : CNF) : P_vec :=
+  ⟨P_godel.gOmega,
+   P_omega_role.bitLike (numClauses φ + maxClauseSize φ) true,
+   P_rank.rankZero⟩
+
+/-- The witness describes the formula (for small formulas with ≤ 100 vars) -/
+theorem cnf_witness_describes (φ : CNF) (h_small : numVars φ ≤ 100) :
+    CNF_DescriptionSystem.describes (cnf_witness φ) φ := by
+  unfold cnf_witness CNF_DescriptionSystem CNF_describes
+  simp only [godel_toNat, omega_toNat]
+  constructor
+  · omega  -- gOmega = 100 ≥ numVars φ (by h_small)
+  · omega  -- bitLike n _ gives n + 10 ≥ numClauses + maxClauseSize
+
+/-- Every small CNF formula is describable -/
+theorem cnf_always_describable (φ : CNF) (h_small : numVars φ ≤ 100) : isDescribable CNF_DescriptionSystem φ :=
+  ⟨cnf_witness φ, cnf_witness_describes φ h_small⟩
+
+/-! ### CNF Complexity Metrics -/
+
+/-- The minimal fuel to describe a small CNF formula (≤ 100 vars) -/
+noncomputable def cnf_K (φ : CNF) (h_small : numVars φ ≤ 100) : Nat :=
+  K_internal CNF_DescriptionSystem φ (cnf_always_describable φ h_small)
+
+/-- CNF complexity lower bound: fuel ≥ numVars -/
+theorem cnf_complexity_lower_bound (φ : CNF) (v : P_vec)
+    (hv : CNF_DescriptionSystem.describes v φ) :
+    pvec_fuel v ≥ numVars φ := by
+  unfold CNF_DescriptionSystem CNF_describes at hv
+  obtain ⟨h_vars, _⟩ := hv
+  calc pvec_fuel v = godel_toNat v.godel + omega_toNat v.omega + rank_toNat v.rank := rfl
+    _ ≥ godel_toNat v.godel := by omega
+    _ ≥ numVars φ := h_vars
+
+/-! ### Examples -/
+
+/-- Example: empty formula -/
+def emptyFormula : CNF := []
+
+/-- Example: simple 2-SAT clause (x1 ∨ ¬x2) -/
+def simple2SAT : CNF := [[1, -2]]
+
+/-- Example: 3-SAT formula (x1 ∨ x2 ∨ x3) ∧ (¬x1 ∨ x2 ∨ ¬x3) -/
+def simple3SAT : CNF := [[1, 2, 3], [-1, 2, -3]]
+
+-- Compute examples
+#eval numClauses emptyFormula  -- 0
+#eval numClauses simple2SAT    -- 1
+#eval numClauses simple3SAT    -- 2
+#eval maxClauseSize simple3SAT -- 3
+
+end CNFInstance
+
 end LogicDissoc.SphereInstances
