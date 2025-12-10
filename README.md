@@ -7,31 +7,74 @@
 
 ## Overview
 
-This project formalizes a complete theory of **dynamic orders** for computation, establishing a rigorous framework from temporal traces (`Rev`, `Halts`) to vector proofs, without going through ZFC or Turing-Gödel directly.
+This project develops a **theory of dynamic orders for computation**, and formalizes it in Lean 4. The framework goes from temporal traces (`Rev`, `Halts`) up to vector profiles and order structures, without relying directly on ZFC or Turing–Gödel inside the core dynamic layer.
 
-### Key Contributions
+The theory is backed by **neural experiments** that probe how well models can learn halting-time structure (K-real) versus randomized halting signals (Shuffle-K).
 
-1. **Dynamic Layer**: Temporal traces, monotone closure (`up`), and the `Rev` operator for halting.
-2. **Rev-CH Isomorphism**: Formal equivalence between reverse-halting and CH profiles.
-3. **Effective Omega (Ω)**: Computable approximations of Chaitin's Ω with `Cut` and `Bit` programs.
-4. **Vector Profiles (`P_vec`)**: Multi-dimensional characterization of logical phenomena via `(godel, omega, rank)` coordinates.
-5. **Global Sphere Framework**: Termination bounds via fuel-based Lyapunov functions.
-6. **Experimental Validation**: Neural network experiments demonstrating the K-real vs Shuffle-K gap.
+### Main Contributions
+
+1. **Dynamic Layer**  
+   Temporal traces, monotone temporal closure (`up`), and a reverse-halting kernel `Rev` with:
+   - `Rev ↔ Halts` for any kit that detects monotone families.
+   - Robustness: many different reverse-halting kits collapse extensionally to the same `Halts`.
+
+2. **Rev–CH Isomorphism**  
+   An abstract equivalence between:
+   - a `RevHalting` structure (program ↦ halts), and
+   - a `CHProfile` (program ↦ CH-flag),
+   giving a precise sense in which "Rev halting is isomorphic to CH" on a shared program space.
+
+3. **Effective Omega (Ω)**  
+   Computable approximations of Chaitin's Ω over a 2-counter Minsky machine:
+   - `OmegaPartialScaled` (partial Ω),
+   - `Cut` / `Bit` / `BitReal` programs,
+   - a universal machine (`decodeProgram`, `encodeProgram`, `universalRun`).
+
+4. **Vector Profiles (`P_vec`)**  
+   A three-component profile for programs and logical phenomena:
+   - `godel`   : Gödel-like / cut structure,
+   - `omega`   : Ω-role (cut-like / bit-like / none),
+   - `rank`    : obstruction level / abstract ordinal rank,
+   with a lexicographic preorder and Boolean subalgebra structure on definable subsets.
+
+5. **Global Sphere Framework**  
+   A general "global sphere" formalism:
+   - `GlobalProfile D := Fin D → Nat`,
+   - `InSphere R v := ∑ᵢ vᵢ ≤ R`,
+   - `StrictStep` and `Fuel := ∑ᵢ Lᵢ(x)`,
+   - `Valley` as an absorbing, internally stable region.
+   
+   This yields a clean Lyapunov-style termination theorem:
+   chains of strictly descending steps have length ≤ initial fuel ≤ `R`.
+
+6. **AC_dyn & Non-Internalisation**  
+   A concrete Rev–CH–AC system with:
+   - an external dynamic choice operator `AC_dyn` on halting codes,
+   - a Level 2 meta-theorem: no recursive consistent theory of ZFC strength can internalise this **specific** dynamic AC as a single total, correct and complete internal predicate for real halting (under a local reflection axiom for the meta-level halting profile).
+
+7. **Experimental Validation**  
+   Neural experiments (`Ω_proof`, `Ω_arith`) showing:
+   - strong OOD generalisation for logical halting structure (K-real vs Shuffle-K),
+   - weaker transfer for arithmetic carry chains.
+
+---
 
 ## Project Structure
 
-```
+```text
 Theory-of-Dynamic-Orders-for-Computation/
 ├── LogicDissoc/
-│   ├── LogicDissoc.lean    # Main formalization (1400+ lines)
-│   ├── Sphere.lean         # Global sphere & termination bounds
-│   └── FYI.lean            # AC internalisation impossibility
+│   ├── LogicDissoc.lean    # Main formalization: traces → Rev → Ω → P_vec → order algebra
+│   ├── Sphere.lean         # Global sphere B_R, StrictStep, Fuel, Valley, Lyapunov-style bounds
+│   └── FYI.lean            # Level 2: AC_dyn internalisation impossibility
 ├── experiments/
-│   ├── omega_proof/        # Propositional logic kernel (best OOD: +42pp)
-│   └── omega_arith/        # Arithmetic kernel experiments
+│   ├── omega_proof/        # Propositional logic halting kernel (best OOD: +42pp on Halt)
+│   └── omega_arith/        # Arithmetic halting kernel experiments
 ├── lakefile.lean           # Build configuration
 └── README.md
 ```
+
+---
 
 ## Formalization (Lean 4 + Mathlib)
 
@@ -39,14 +82,14 @@ Theory-of-Dynamic-Orders-for-Computation/
 
 | File | Description |
 |------|-------------|
-| `LogicDissoc.lean` | Complete pipeline: Traces → Rev → Minsky Machine → Ω → P_vec → Order Algebra |
-| `Sphere.lean` | Global sphere `B_R = {v | ∑ᵢ vᵢ ≤ R}`, `StrictStep`, `Fuel`, `Valley` |
-| `FYI.lean` | Level 2 theorem: no internal AC_dyn predicate possible |
+| `LogicDissoc.lean` | Full pipeline: traces → Rev → Minsky machine → Ω → `P_vec` → Boolean / order algebra |
+| `Sphere.lean` | Global sphere `B_R = {v | ∑ᵢ vᵢ ≤ R}`, `StrictStep`, `Fuel`, `Valley`, Lyapunov-style bounds |
+| `FYI.lean` | Level 2: no total internal predicate reproducing `AC_dyn` on real halting codes |
 
-### Key Theorems
+### Selected Theorems
 
 ```lean
--- Rev equals Halts for monotone kits
+-- Rev equals Halts for any kit detecting monotone families
 theorem Rev_iff_Halts (K : RHKit) (DK : DetectsMonotone K) (T : Trace) :
     Rev K T ↔ Halts T
 
@@ -54,68 +97,92 @@ theorem Rev_iff_Halts (K : RHKit) (DK : DetectsMonotone K) (T : Trace) :
 theorem strict_step_decreases_sum (x y : State) (h : StrictStep Step L x y) :
     Fuel L y < Fuel L x
 
--- Trajectory length bounded by initial fuel
+-- Trajectory length is bounded by initial fuel ≤ R
 theorem max_trajectory_length (R : Nat) (chain : Nat → State) (len : Nat)
     (h_start : GlobalProfile.InSphere R (L (chain 0)))
     (h_step : ∀ k, k < len → StrictStep Step L (chain k) (chain (k + 1))) :
     len ≤ R
 
--- Bit program halts iff OmegaBit matches
+-- Bit program halts iff its Ω-bit matches
 theorem bit_halts_iff (n : Nat) (a : Bool) :
     HaltsProg (Bit n a) ↔ OmegaBit n = a
 ```
 
+---
+
 ## Experiments
 
-### Ω_proof (Propositional Logic)
+### Ω_proof (Propositional Logic Kernel)
 
-Dynamic kernel with early stopping on counterexamples.
+Dynamic kernel with early stopping on the first counterexample/witness, and halting buckets defined by relative position in the `2^n` search space.
+
+**Halting prediction (Halt head)**
 
 | Condition | Val Halt | OOD Halt | Δ OOD |
 |-----------|----------|----------|-------|
 | K-real    | 96%      | **75%**  | —     |
 | Shuffle-K | 37%      | 33%      | —     |
-| **Δ**     | +59pp    | **+42pp**| ✓     |
+| **Gap**   | +59 pp   | **+42 pp** | ✓   |
 
-**Key insight**: Logical structure (proof depth) is more transferable than arithmetic structure.
+**Observation:**
+Logical structure (proof depth, search position) is highly transferable OOD when the model sees the true kernel (`K-real`), and collapses when halting labels are shuffled (`Shuffle-K`).
 
-### Ω_arith (Arithmetic)
+### Ω_arith (Arithmetic Kernel)
 
-Halting-time prediction for addition/multiplication.
+Halting-time prediction for arithmetic programs (e.g. addition / multiplication with carry structure).
 
 | Condition | Val Halt | OOD Halt |
 |-----------|----------|----------|
 | K-real    | 80%      | 47%      |
 | Shuffle-K | 33%      | 42%      |
 
+**Observation:**
+Arithmetic halting structure shows weaker OOD generalisation than propositional logic: carry chains are less easily transferred than proof-depth structure.
+
+---
+
 ## Building
 
 ```bash
-# Install dependencies
+# Fetch Mathlib cache (recommended)
 lake exe cache get
 
 # Build all modules
 lake build
 
-# Check specific file
+# Check a specific file
 lake env lean LogicDissoc/Sphere.lean
 ```
 
 ## Requirements
 
-- Lean 4.x
-- Mathlib 4
-- Python 3.8+ (for experiments)
-- PyTorch (for training)
+* Lean 4.x
+* mathlib4
+* Python 3.8+ (for experiments)
+* PyTorch (for training kernels `Ω_proof` / `Ω_arith`)
 
-## Theoretical Background
+---
 
-The project establishes that:
+## Theoretical Summary
 
-1. **Dynamic choice `AC_dyn`** is the only axiomatic element (halting oracle).
-2. **Vector profiles `P_vec`** characterize logical phenomena as order structures.
-3. **CH and AC_dyn** properties separate on cut/bit axes via dependency requirements.
-4. **Fuel-based termination** provides combinatorial bounds on execution length.
+The formalization establishes that:
+
+1. The **dynamic halting layer** (`Rev`, `Halts`, `AC_dyn`) can be axiomatized with:
+   * a minimal opaque halting oracle,
+   * invariance `Rev ↔ Halts` for any kit detecting monotone families.
+
+2. **Vector profiles** `P_vec = (godel, omega, rank)` provide an order-theoretic view of logical phenomena:
+   * CH-like properties depend only on "cut" / Gödel components,
+   * AC_dyn-like properties depend only on Ω-role / bit components,
+     under suitable `LogicSpecs`.
+
+3. The **global sphere framework** (`GlobalProfile`, `StrictStep`, `Fuel`, `Valley`) yields:
+   * a general Lyapunov-style termination argument for any multi-dimensional monotone measure,
+   * a uniform combinatorial bound on the length of strictly descending trajectories.
+
+4. At Level 2, assuming a local reflection principle for the meta-level predicate built from `AC_dyn`, no recursive consistent theory of ZFC strength can internalise this specific Rev–CH–AC dynamic as a single total, correct and complete internal predicate for real halting.
+
+---
 
 ## License
 
@@ -125,9 +192,9 @@ MIT
 
 ```bibtex
 @misc{dynamic-orders-2024,
-  title={Theory of Dynamic Orders for Computation},
-  author={...},
-  year={2024},
-  howpublished={\url{https://github.com/.../Theory-of-Dynamic-Orders-for-Computation}}
+  title        = {Theory of Dynamic Orders for Computation},
+  author       = {...},
+  year         = {2024},
+  howpublished = {\url{https://github.com/.../Theory-of-Dynamic-Orders-for-Computation}}
 }
 ```
