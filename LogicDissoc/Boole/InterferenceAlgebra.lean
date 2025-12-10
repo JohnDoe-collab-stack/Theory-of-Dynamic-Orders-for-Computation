@@ -1,8 +1,11 @@
 import Mathlib.Data.Rat.Defs
 import Mathlib.Data.Rat.Lemmas
 import Mathlib.Order.WithBot
+import Mathlib.Order.MinMax
 import Mathlib.Algebra.Order.Monoid.Defs
 import Mathlib.Logic.Equiv.Basic
+-- Trying likely location for Rat LinearOrder
+import Mathlib.Algebra.Order.Field.Rat
 
 namespace LogicDissoc
 namespace Boole
@@ -45,11 +48,23 @@ instance : LT NonNegRat where
 
 /-- Max of non-negatives is non-negative. -/
 instance : Max NonNegRat where
-  max a b := ⟨max a.1 b.1, sorry⟩  -- requires le_max_of_le_left
+  max a b := ⟨max a.1 b.1, by
+    if h : a.1 ≤ b.1 then
+      rw [max_eq_right h]
+      exact b.2
+    else
+      rw [max_eq_left (le_of_not_ge h)]
+      exact a.2⟩
 
 /-- Min of non-negatives is non-negative. -/
 instance : Min NonNegRat where
-  min a b := ⟨min a.1 b.1, sorry⟩  -- requires le_min
+  min a b := ⟨min a.1 b.1, by
+    if h : a.1 ≤ b.1 then
+      rw [min_eq_left h]
+      exact a.2
+    else
+      rw [min_eq_right (le_of_not_ge h)]
+      exact b.2⟩
 
 instance : AddCommMonoid NonNegRat where
   add := (· + ·)
@@ -86,6 +101,7 @@ Elle encode :
 * lois de monoïdes (⊕ commutatif, ⊙ associatif avec unité),
 * une loi d'interchange lax (distributivité),
 * une dichotomie sur ⊕ (idempotence vs cancel),
+* une dichotomie sur ⊙ (idempotence vs non-idempotence),
 * une forme de sérialité (cas idempotent).
 -/
 structure InterferenceAlgebra where
@@ -122,10 +138,16 @@ structure InterferenceAlgebra where
          (opPar (opPar (opSeq a c) (opSeq a d))
                  (opPar (opSeq b c) (opSeq b d)))
 
-  -- Dichotomie : ⊕ idempotente (type sup) ou cancellative (type +).
+  -- Dichotomie sur ⊕ : idempotente (type sup) ou cancellative (type +).
   dichotomy :
     (∀ x, opPar x x = x) ∨
     (∀ x y z, opPar x y = opPar x z → y = z)
+
+  -- Dichotomie sur ⊙ : idempotente (type max) ou non (type +).
+  -- Ceci permet une classification constructive sans Classical.
+  seq_dichotomy :
+    (∀ x, opSeq x x = x) ∨
+    ¬ (∀ x, opSeq x x = x)
 
   -- Sérialité (cas idempotent) : séquence ne doit pas "réduire" la
   -- somme, typique des invariants de profondeur/distance.
@@ -138,7 +160,7 @@ structure InterferenceAlgebra where
 
 namespace InterferenceAlgebra
 
-open Classical
+-- REMOVED: open Classical (constructive proofs only)
 
 variable (A : InterferenceAlgebra)
 
@@ -172,33 +194,60 @@ def satisfiesShape (cp : CanonicalPair) : Prop :=
   | CanonicalPair.plusPlus => IsPlusPlus A
   | CanonicalPair.plusMax  => IsPlusMax A
 
-/-- Théorème de classification abstraite : il existe un tag canonique
-    pour lequel l'algèbre satisfait la forme correspondante. -/
+/--
+Théorème de classification partielle (constructif) :
+Si ⊕ est idempotente, l'algèbre est de forme tropicale (maxPlus).
+-/
+theorem classification_tropical (h : ∀ x, A.opPar x x = x) :
+    satisfiesShape A CanonicalPair.maxPlus := by
+  unfold satisfiesShape IsMaxPlus IsTropicalIdempotent
+  exact ⟨h, A.seq_comm⟩
+
+/--
+Théorème de classification pour le cas additif avec ⊙ idempotente.
+-/
+theorem classification_plusMax
+    (h_cancel : ∀ x y z, A.opPar x y = A.opPar x z → y = z)
+    (h_seq_idem : ∀ x, A.opSeq x x = x) :
+    satisfiesShape A CanonicalPair.plusMax := by
+  unfold satisfiesShape IsPlusMax IsAdditive
+  exact ⟨⟨h_cancel, A.seq_comm⟩, h_seq_idem⟩
+
+/--
+Théorème de classification pour le cas additif sans ⊙ idempotente.
+-/
+theorem classification_plusPlus
+    (h_cancel : ∀ x y z, A.opPar x y = A.opPar x z → y = z)
+    (h_seq_not_idem : ¬ (∀ x, A.opSeq x x = x)) :
+    satisfiesShape A CanonicalPair.plusPlus := by
+  unfold satisfiesShape IsPlusPlus IsAdditive
+  exact ⟨⟨h_cancel, A.seq_comm⟩, h_seq_not_idem⟩
+
+/--
+Théorème de classification abstraite (entièrement constructif) :
+Utilise les deux dichotomies (sur ⊕ et sur ⊙) pour déterminer le cas.
+- Si ⊕ idempotente → maxPlus (tropical)
+- Si ⊕ cancellative et ⊙ idempotente → plusMax
+- Si ⊕ cancellative et ⊙ non-idempotente → plusPlus
+-/
 theorem classification_theorem :
     ∃ cp : CanonicalPair, satisfiesShape A cp := by
-  -- cas sur la dichotomie
-  cases h_par : A.dichotomy with
+  cases A.dichotomy with
   | inl h_idem =>
-      -- cas idempotent : forme tropicale (max,+)
+      -- Cas ⊕ idempotente : forme tropicale (max,+)
       use CanonicalPair.maxPlus
-      unfold satisfiesShape IsMaxPlus IsTropicalIdempotent
-      exact ⟨h_idem, A.seq_comm⟩
+      exact classification_tropical A h_idem
   | inr h_cancel =>
-      -- cas additif : forme additive, puis sous-cas sur ⊙
-      have h_add : IsAdditive A := by
-        refine And.intro ?hcan ?hseq
-        · intro x y z; exact h_cancel x y z
-        · intro x y; exact A.seq_comm x y
-      -- On utilise le tiers exclu pour l'idempotence de ⊙
-      by_cases h_seq : ∀ x, A.opSeq x x = x
-      · -- (+,max)
-        use CanonicalPair.plusMax
-        unfold satisfiesShape IsPlusMax
-        exact ⟨h_add, h_seq⟩
-      · -- (+,+)
-        use CanonicalPair.plusPlus
-        unfold satisfiesShape IsPlusPlus
-        exact ⟨h_add, h_seq⟩
+      -- Cas ⊕ cancellative : on utilise seq_dichotomy pour distinguer
+      cases A.seq_dichotomy with
+      | inl h_seq_idem =>
+          -- ⊙ idempotente : forme (+,max)
+          use CanonicalPair.plusMax
+          exact classification_plusMax A h_cancel h_seq_idem
+      | inr h_seq_not_idem =>
+          -- ⊙ non idempotente : forme (+,+)
+          use CanonicalPair.plusPlus
+          exact classification_plusPlus A h_cancel h_seq_not_idem
 
 end InterferenceAlgebra
 
