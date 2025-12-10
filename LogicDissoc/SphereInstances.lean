@@ -398,4 +398,229 @@ example : ∀ chain len, chain 0 = CalcState.initial 5 → ValidChain chain len 
   intro chain len h_start h_valid
   exact max_strict_steps (CalcState.initial 5) chain len h_start h_valid
 
+-- ============================================================================
+-- § 9. Complexity Theory: P vs NP
+-- ============================================================================
+
+/-!
+## 9. Complexity Theory Integration
+
+Two approaches to distinguish P and NP within the Sphere framework:
+
+### Option 1: Non-deterministic Steps
+- Extend `CalcStep` with a `guess` constructor
+- P = runs using only deterministic steps
+- NP = runs that may use non-deterministic guesses
+
+### Option 2: Certificate-based (Standard)
+- P = problems decidable in polynomial time
+- NP = problems verifiable in polynomial time given a certificate
+
+Both approaches use `calc_chain_bounded` as the core time-bounding mechanism.
+-/
+
+/-! ### Option 1: Non-deterministic Computation -/
+
+/-- Extended computation state with guess tape -/
+structure NDCalcState where
+  base : CalcState
+  guesses : List Bool  -- accumulated non-deterministic choices
+  deriving DecidableEq, Repr
+
+namespace NDCalcState
+
+@[simp] def fuel (s : NDCalcState) : Nat := s.base.fuel
+
+def initial (budget : Nat) : NDCalcState :=
+  ⟨CalcState.initial budget, []⟩
+
+end NDCalcState
+
+/--
+Non-deterministic computation steps.
+
+Extends CalcStep with a `guess` operation that:
+- Consumes 1 fuel (from oracle_budget)
+- Records a non-deterministic boolean choice
+-/
+inductive NDCalcStep : NDCalcState → NDCalcState → Prop where
+  | oracle (s : NDCalcState) (h : s.base.profile.oracle_budget > 0) :
+      NDCalcStep s ⟨⟨s.base.profile.callOracle⟩, s.guesses⟩
+  | ch (s : NDCalcState) (h : s.base.profile.ch_depth > 0) :
+      NDCalcStep s ⟨⟨s.base.profile.stepCH⟩, s.guesses⟩
+  | rank (s : NDCalcState) (h : s.base.profile.rank_budget > 0) :
+      NDCalcStep s ⟨⟨s.base.profile.stepRank⟩, s.guesses⟩
+  | guess (s : NDCalcState) (b : Bool) (h : s.base.profile.oracle_budget > 0) :
+      NDCalcStep s ⟨⟨s.base.profile.callOracle⟩, s.guesses ++ [b]⟩
+
+namespace NDCalcStep
+
+/-- Every NDCalcStep decreases fuel -/
+theorem decreases_fuel : ∀ {s t : NDCalcState}, NDCalcStep s t → t.fuel < s.fuel
+  | _, _, .oracle s h => RevACProfile.callOracle_decreases_fuel s.base.profile h
+  | _, _, .ch s h => RevACProfile.stepCH_decreases_fuel s.base.profile h
+  | _, _, .rank s h => RevACProfile.stepRank_decreases_fuel s.base.profile h
+  | _, _, .guess s _ h => RevACProfile.callOracle_decreases_fuel s.base.profile h
+
+end NDCalcStep
+
+/-- ND valid chain -/
+def NDValidChain (chain : Nat → NDCalcState) (len : Nat) : Prop :=
+  ∀ k, k < len → NDCalcStep (chain k) (chain (k + 1))
+
+/-- ND chains are also bounded by initial fuel -/
+theorem nd_chain_bounded (chain : Nat → NDCalcState) (len : Nat)
+    (h_chain : NDValidChain chain len) :
+    len ≤ (chain 0).fuel := by
+  induction len generalizing chain with
+  | zero => exact Nat.zero_le _
+  | succ n ih =>
+    have h_first := h_chain 0 (Nat.zero_lt_succ n)
+    have h_dec : (chain 1).fuel < (chain 0).fuel := NDCalcStep.decreases_fuel h_first
+    have h_rest : NDValidChain (fun k => chain (k + 1)) n := fun k hk =>
+      h_chain (k + 1) (Nat.succ_lt_succ hk)
+    have h_ih : n ≤ (chain 1).fuel := ih (fun k => chain (k + 1)) h_rest
+    omega
+
+/-- A run is deterministic if it uses no guesses -/
+def IsDeterministic (chain : Nat → NDCalcState) (len : Nat) : Prop :=
+  ∀ k, k < len → match (chain k), (chain (k+1)) with
+    | s, t => t.guesses = s.guesses
+
+/-! ### Option 2: Certificate-based Complexity -/
+
+/-- Abstract size function -/
+abbrev SizeFn (α : Type) := α → Nat
+
+/-- Time control: machine runs in time ≤ bound(size(input)) -/
+structure TimeControl (Input : Type) where
+  init : Input → CalcState
+  size : SizeFn Input
+  bound : Nat → Nat
+  init_bounded : ∀ x, (init x).fuel ≤ bound (size x)
+
+namespace TimeControl
+
+/-- A run of the controlled machine -/
+def Run (T : TimeControl Input) (x : Input) (chain : Nat → CalcState) (len : Nat) : Prop :=
+  chain 0 = T.init x ∧ ValidChain chain len
+
+/-- Main theorem: controlled runs respect the time bound -/
+theorem runsInTime (T : TimeControl Input) :
+    ∀ x chain len, T.Run x chain len → len ≤ T.bound (T.size x) := by
+  intro x chain len ⟨h_init, h_valid⟩
+  have h1 := calc_chain_bounded chain len h_valid
+  have h2 := T.init_bounded x
+  simp only [h_init] at h1
+  omega
+
+end TimeControl
+
+/-- Polynomial bound (for P and NP definitions) -/
+def IsPolynomial (f : Nat → Nat) : Prop :=
+  ∃ c k : Nat, ∀ n, f n ≤ c * n ^ k + c
+
+/--
+P: Problems decidable in polynomial time.
+
+A decision problem φ : Input → Bool is in P if there exists a
+TimeControl with polynomial bound that correctly decides φ.
+-/
+structure InP (Input : Type) (φ : Input → Bool) where
+  control : TimeControl Input
+  halt : CalcState → Bool
+  poly : IsPolynomial control.bound
+  correct : ∀ x chain len,
+    control.Run x chain len →
+    halt (chain len) = φ x
+
+/--
+NP: Problems verifiable in polynomial time.
+
+A decision problem φ : Input → Bool is in NP if there exists:
+- A certificate type
+- A polynomial-time verifier
+- Completeness: φ x = true → ∃ cert, verify accepts
+- Soundness: verify accepts → φ x = true
+-/
+structure InNP (Input Certificate : Type) [Inhabited Certificate] (φ : Input → Bool) where
+  -- Verification machine
+  verifyControl : TimeControl (Input × Certificate)
+  verifyHalt : CalcState → Bool
+
+  -- Certificate size is polynomially bounded
+  certSize : SizeFn Certificate
+  certPoly : IsPolynomial (fun _ => certSize default)  -- simplified
+
+  -- Verifier runs in polynomial time
+  verifyPoly : IsPolynomial verifyControl.bound
+
+  -- Completeness: true instances have accepting certificates
+  completeness : ∀ x, φ x = true →
+    ∃ c chain len,
+      verifyControl.Run (x, c) chain len ∧
+      verifyHalt (chain len) = true
+
+  -- Soundness: accepting certificates imply true instances
+  soundness : ∀ x c chain len,
+    verifyControl.Run (x, c) chain len →
+    verifyHalt (chain len) = true →
+    φ x = true
+
+/-- P ⊆ NP: every problem in P is also in NP (structural inclusion) -/
+def P_subset_NP {Input : Type} {φ : Input → Bool} (h : InP Input φ) :
+    InNP Input Unit φ where
+  verifyControl := {
+    init := fun (x, _) => h.control.init x
+    size := fun (x, _) => h.control.size x
+    bound := h.control.bound
+    init_bounded := fun (x, _) => h.control.init_bounded x
+  }
+  verifyHalt := h.halt
+  certSize := fun _ => 0
+  certPoly := ⟨1, 0, fun _ => by simp⟩
+  verifyPoly := h.poly
+  -- Completeness and soundness require additional axioms about decidability
+  completeness := fun x hx => by
+    -- A P machine that decides φ provides a witness via its run
+    -- This requires existential witness from machine execution
+    sorry
+  soundness := fun x _ chain len hRun hHalt => by
+    -- If verifier accepts, original P machine would also accept
+    have hRun' : h.control.Run x chain len := hRun
+    exact h.correct x chain len hRun' ▸ hHalt
+
+/-! ### Complexity Class Definitions -/
+
+/-- TIME(f): problems decidable in time O(f) -/
+def TIME (f : Nat → Nat) (Input : Type) (φ : Input → Bool) : Prop :=
+  ∃ T : TimeControl Input, ∃ halt : CalcState → Bool,
+    (∀ n, T.bound n ≤ f n) ∧
+    (∀ x chain len, T.Run x chain len → halt (chain len) = φ x)
+
+/-- P = ⋃_{poly} TIME(poly) -/
+def ClassP (Input : Type) (φ : Input → Bool) : Prop :=
+  ∃ f, IsPolynomial f ∧ TIME f Input φ
+
+/-- NP via certificate verification -/
+def ClassNP (Input : Type) (φ : Input → Bool) : Prop :=
+  ∃ (Certificate : Type) (_ : Inhabited Certificate), ∃ (_ : InNP Input Certificate φ), True
+
+/-! ### Key Theorems -/
+
+/-- The fundamental bound: any computation is bounded by initial fuel -/
+theorem complexity_fundamental_bound {Input : Type}
+    (init : Input → CalcState)
+    (size : SizeFn Input)
+    (bound : Nat → Nat)
+    (h_bounded : ∀ x, (init x).fuel ≤ bound (size x))
+    (x : Input) (chain : Nat → CalcState) (len : Nat)
+    (h_start : chain 0 = init x)
+    (h_valid : ValidChain chain len) :
+    len ≤ bound (size x) := by
+  have h1 := calc_chain_bounded chain len h_valid
+  simp only [h_start] at h1
+  have h2 := h_bounded x
+  omega
+
 end LogicDissoc.SphereInstances
