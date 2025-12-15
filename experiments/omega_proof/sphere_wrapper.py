@@ -231,6 +231,22 @@ class ProofSphereTracker:
         }
 
 
+
+def sphere_metrics_from_t_first(*, n_atoms: int, depth: int, t_first: int, revision_budget: int = 5, halts: bool = True) -> Dict[str, Any]:
+    """
+    Compute Sphere metrics for a given (n_atoms, depth, t_first) triple.
+
+    Central helper to compare different kernel orderings:
+    recompute t_first under (atom_order, valuation_order), then call this.
+    """
+    config = ProofProfileConfig(n_atoms=n_atoms, max_depth=max(depth, 1), revision_budget=revision_budget)
+    tracker = ProofSphereTracker(config)
+    if isinstance(t_first, int) and t_first > 0:
+        for t in range(min(t_first, config.search_space_size)):
+            tracker.step(t=t, depth=min(t + 1, depth))
+    return tracker.finalize(t_first=t_first, halts=halts)
+
+
 # =============================================================================
 # § 2. Kernel Integration
 # =============================================================================
@@ -253,7 +269,12 @@ def wrap_kernel_run(kernel_run_fn):
         depth = formula.depth() if hasattr(formula, 'depth') else 5
         
         # Create tracker
-        config = ProofProfileConfig(n_atoms=n_atoms, max_depth=depth)
+        sphere_rev_budget = kwargs.pop("sphere_revision_budget", 10)
+        config = ProofProfileConfig(
+            n_atoms=n_atoms, 
+            max_depth=max(depth, 1),
+            revision_budget=sphere_rev_budget
+        )
         tracker = ProofSphereTracker(config)
         
         # Run original function
@@ -263,8 +284,23 @@ def wrap_kernel_run(kernel_run_fn):
         t_first = result.get('t_first', -1) if isinstance(result, dict) else -1
         halts = result.get('halts', False) if isinstance(result, dict) else False
         
+        # Simulate Sphere steps up to t_first (discrete lag / fuel consumption)
+        # Convention: t_first counts valuations examined (first valuation => t_first=1).
+        # We step t = 0 .. t_first-1, capped by search space size.
+        if isinstance(t_first, int) and t_first > 0:
+            for t in range(min(t_first, config.search_space_size)):
+                tracker.step(t=t, depth=min(t + 1, depth))
+        
         # Finalize tracking
         metrics = tracker.finalize(t_first, halts)
+        
+        # Record kernel ordering parameters if provided
+        if 'atom_order' in kwargs:
+            metrics['atom_order'] = str(kwargs.get('atom_order'))
+        if 'valuation_order' in kwargs:
+            metrics['valuation_order'] = str(kwargs.get('valuation_order'))
+        if 'seed' in kwargs:
+            metrics['order_seed'] = kwargs.get('seed')
         
         if isinstance(result, dict):
             result['sphere_metrics'] = metrics

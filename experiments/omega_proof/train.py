@@ -395,5 +395,40 @@ def main():
     train(config)
 
 
+
+@torch.no_grad()
+def evaluate_standalone(model, samples, device="cpu"):
+    """Standalone evaluation for stress tests (bypassing DataLoader overhead logic if needed)."""
+    from torch.utils.data import DataLoader
+    from dataset import ProofDataset
+    
+    ds = ProofDataset(samples)
+    dl = DataLoader(ds, batch_size=64, shuffle=False)
+    
+    correct_y = 0
+    correct_h = 0
+    total = 0
+    
+    model.eval()
+    for formula, q_type, depth, y, halt in dl:
+        formula = formula.to(device)
+        q_type = q_type.to(device)
+        depth = depth.to(device)
+        y = y.to(device)
+        halt = halt.to(device)
+        
+        y_logits, halt_logits, _ = model(formula, q_type, depth)
+        
+        y_pred = (torch.sigmoid(y_logits) >= 0.5).float()
+        correct_y += (y_pred == y).sum().item()
+        
+        h_pred = halt_logits.argmax(dim=1)
+        correct_h += (h_pred == halt).sum().item()
+        
+        total += len(y)
+        
+    return correct_y / total if total > 0 else 0, correct_h / total if total > 0 else 0
+
 if __name__ == "__main__":
     main()
+

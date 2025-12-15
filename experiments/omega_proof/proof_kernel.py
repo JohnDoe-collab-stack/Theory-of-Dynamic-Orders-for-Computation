@@ -177,37 +177,112 @@ class ProofKernel:
     This creates natural variation in difficulty.
     """
     
-    def __init__(self, max_steps: int = 100):
+    def __init__(self, max_steps: int = 100, seed: int = 42):
         self.max_steps = max_steps
+        self.seed = seed
+        # seed is for fallback internal RNG, but ideally we pass rng per call
+        random.seed(seed)
     
-    def compute_t_first_taut(self, formula: Formula) -> Tuple[bool, int]:
-        """Stop on first counterexample."""
-        atom_list = sorted(formula.atoms())
+    def compute_t_first_taut(self, formula: Formula, valuation_order: str = "lex",
+                             atom_order: str = "sorted", rng: random.Random = None) -> Tuple[bool, int]:
+        """
+        Stop on first counterexample.
+        
+        Args:
+            valuation_order: "lex" (lexicographic), "shuffle", "random" (monte carlo)
+            atom_order: "sorted" (p0, p1...), "shuffle"
+            rng: Local random instance for shuffling (prevents global state drift)
+        """
+        _rng = rng if rng else random
+        
+        atom_list = list(formula.atoms())
+        
+        # 1. Atom ordering
+        if atom_order == "sorted":
+            atom_list.sort()
+        elif atom_order == "shuffle":
+            _rng.shuffle(atom_list)
+        
         n = len(atom_list)
         
         if n == 0:
             return formula.eval({}), 0
         
+        # 2. Valuation ordering
+        if valuation_order == "lex":
+            valuations = product([False, True], repeat=n)
+        elif valuation_order == "shuffle":
+            vals = list(product([False, True], repeat=n))
+            _rng.shuffle(vals)
+            valuations = vals
+        elif valuation_order == "random":
+            # Monte Carlo sampling (up to max_steps or coverage)
+            valuations = []
+            seen = set()
+            limit = min(self.max_steps * 2, 2**n) # safety margin
+            
+            # Simple rejection sampling for unique valuations
+            # (efficient enough for small n <= 10)
+            count = 0
+            while len(valuations) < limit and count < limit * 10:
+                val = tuple(_rng.choice([False, True]) for _ in range(n))
+                if val not in seen:
+                    valuations.append(val)
+                    seen.add(val)
+                count += 1
+
+        
         t = 0
-        for values in product([False, True], repeat=n):
+        for values in valuations:
             t += 1
             if not formula.eval(dict(zip(atom_list, values))):
                 return False, t  # Counterexample found
             if t >= self.max_steps:
                 break
         
-        return True, t  # All passed
+        return True, t  # All passed (or timeout)
     
-    def compute_t_first_sat(self, formula: Formula) -> Tuple[bool, int]:
-        """Stop on first witness."""
-        atom_list = sorted(formula.atoms())
+    def compute_t_first_sat(self, formula: Formula, valuation_order: str = "lex",
+                            atom_order: str = "sorted", rng: random.Random = None) -> Tuple[bool, int]:
+        """
+        Stop on first witness.
+        """
+        _rng = rng if rng else random
+        
+        atom_list = list(formula.atoms())
+        
+        # 1. Atom ordering
+        if atom_order == "sorted":
+            atom_list.sort()
+        elif atom_order == "shuffle":
+            _rng.shuffle(atom_list)
+            
         n = len(atom_list)
         
         if n == 0:
             return formula.eval({}), 0
         
+        # 2. Valuation ordering
+        if valuation_order == "lex":
+            valuations = product([False, True], repeat=n)
+        elif valuation_order == "shuffle":
+            vals = list(product([False, True], repeat=n))
+            _rng.shuffle(vals)
+            valuations = vals
+        elif valuation_order == "random":
+            valuations = []
+            seen = set()
+            limit = min(self.max_steps * 2, 2**n)
+            count = 0
+            while len(valuations) < limit and count < limit * 10:
+                val = tuple(_rng.choice([False, True]) for _ in range(n))
+                if val not in seen:
+                    valuations.append(val)
+                    seen.add(val)
+                count += 1
+
         t = 0
-        for values in product([False, True], repeat=n):
+        for values in valuations:
             t += 1
             if formula.eval(dict(zip(atom_list, values))):
                 return True, t  # Witness found

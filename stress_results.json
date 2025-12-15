@@ -1,0 +1,126 @@
+{
+  "lex_sorted": {
+    "input_hash": "793ccc1940cffcff05a7a2932d738718",
+    "y_accuracy": 0.922,
+    "halt_accuracy": 0.78,
+    "balanced_halt_accuracy": 0.7815163154244088,
+    "majority_baseline": 0.372,
+    "recalls": [
+      0.7688172043010753,
+      0.7391304347826086,
+      0.8366013071895425
+    ],
+    "confusion_matrix": [
+      [
+        143,
+        29,
+        14
+      ],
+      [
+        28,
+        119,
+        14
+      ],
+      [
+        9,
+        16,
+        128
+      ]
+    ],
+    "pearson_correlation_with_baseline": 1.0,
+    "max_steps_hit": 0
+  },
+  "shuffle_sorted": {
+    "input_hash": "793ccc1940cffcff05a7a2932d738718",
+    "y_accuracy": 0.922,
+    "halt_accuracy": 0.422,
+    "balanced_halt_accuracy": 0.4087481146304676,
+    "majority_baseline": 0.364,
+    "recalls": [
+      0.7197802197802198,
+      0.24175824175824176,
+      0.2647058823529412
+    ],
+    "confusion_matrix": [
+      [
+        131,
+        32,
+        19
+      ],
+      [
+        37,
+        44,
+        101
+      ],
+      [
+        12,
+        88,
+        36
+      ]
+    ],
+    "pearson_correlation_with_baseline": 0.7821760336201286,
+    "max_steps_hit": 0
+  },
+  "lex_shuffle": {
+    "input_hash": "793ccc1940cffcff05a7a2932d738718",
+    "y_accuracy": 0.922,
+    "halt_accuracy": 0.788,
+    "balanced_halt_accuracy": 0.7895670026129152,
+    "majority_baseline": 0.376,
+    "recalls": [
+      0.776595744680851,
+      0.75,
+      0.8421052631578947
+    ],
+    "confusion_matrix": [
+      [
+        146,
+        29,
+        13
+      ],
+      [
+        25,
+        120,
+        15
+      ],
+      [
+        9,
+        15,
+        128
+      ]
+    ],
+    "pearson_correlation_with_baseline": 0.9490444989181639,
+    "max_steps_hit": 0
+  },
+  "random_sorted": {
+    "input_hash": "793ccc1940cffcff05a7a2932d738718",
+    "y_accuracy": 0.922,
+    "halt_accuracy": 0.674,
+    "balanced_halt_accuracy": 0.6691808409375057,
+    "majority_baseline": 0.382,
+    "recalls": [
+      0.7277486910994765,
+      0.5855263157894737,
+      0.6942675159235668
+    ],
+    "confusion_matrix": [
+      [
+        139,
+        38,
+        14
+      ],
+      [
+        30,
+        89,
+        33
+      ],
+      [
+        11,
+        37,
+        109
+      ]
+    ],
+    "pearson_correlation_with_baseline": 0.8398158974501403,
+    "max_steps_hit": 0
+  }
+}

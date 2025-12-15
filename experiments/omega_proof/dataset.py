@@ -92,10 +92,11 @@ def encode_formula(formula: Formula) -> List[int]:
 # ============================================================================
 
 def generate_samples(n_samples: int, n_atoms_range: Tuple[int, int],
-                     depth_range: Tuple[int, int], seed: int = 42) -> List[ProofSample]:
+                     depth_range: Tuple[int, int], seed: int = 42,
+                     valuation_order: str = "lex", atom_order: str = "sorted") -> List[ProofSample]:
     """Generate samples with specified complexity ranges."""
     random.seed(seed)
-    kernel = ProofKernel()
+    kernel = ProofKernel(seed=seed)
     samples = []
     
     for i in range(n_samples):
@@ -104,15 +105,20 @@ def generate_samples(n_samples: int, n_atoms_range: Tuple[int, int],
         
         formula = random_formula(n_atoms, max_depth, seed=seed + i)
         
+        # Local RNG for kernel variants (shuffle/random)
+        # Guarantees that global shuffle/random calls in kernel don't affect 
+        # the next iterations' random_formula generation.
+        local_rng = random.Random(seed + i)
+        
         # Choose question type
         q_type = random.choice([QuestionType.TAUT, QuestionType.SAT])
         
         if q_type == QuestionType.TAUT:
             y_star = int(is_tautology(formula))
-            _, t_first = kernel.compute_t_first_taut(formula)
+            _, t_first = kernel.compute_t_first_taut(formula, valuation_order, atom_order, rng=local_rng)
         else:
             y_star = int(is_satisfiable(formula))
-            _, t_first = kernel.compute_t_first_sat(formula)
+            _, t_first = kernel.compute_t_first_sat(formula, valuation_order, atom_order, rng=local_rng)
         
         actual_n = len(formula.atoms())
         hr = halt_rank_of_tfirst(t_first, actual_n)
